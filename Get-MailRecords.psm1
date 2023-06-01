@@ -1,5 +1,5 @@
 <#
-A function that tries to find if there are the following DNS records A, MX, SPF, DMARC and DKIM.
+A PowerShell function that tries to find if there are the following DNS records A, MX, SPF, DMARC and DKIM.
 Add this function to your powershell profile then run like the following. 
 
 How to use:
@@ -232,12 +232,16 @@ function Get-MailRecords {
             }
         }
 
-        If ($resultdkim -eq 'unfound' -and $Selector -eq 'mail') {
+        If ($resultdkim -eq 'unfound' -and $resultdkim -ne 'True' <#-and $Selector -eq 'mail'#>) {
             $Selector = 'unprovided'
+            $DkimResult = 'DKIM-Record not found.'
+        }
+        Elseif ($resultdkim -eq $false) {
             $DkimResult = 'DKIM-Record not found.'
         }
         Else {
             $DkimResult = 'DKIM-record found.'
+            #testing
         }
 
         [PSCustomObject]@{
