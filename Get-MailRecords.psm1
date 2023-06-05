@@ -72,7 +72,7 @@ function Get-MailRecords {
 
     # Check for Resolve-DnsName
     if (-not (Get-Command -Name Resolve-DnsName -ErrorAction SilentlyContinue)) {
-        Write-Error "There is a problem with Resolve-DnsName and this function can't continue.".
+        Write-Error "There is a problem with Resolve-DnsName and this function can't continue."
         return
     }
     
