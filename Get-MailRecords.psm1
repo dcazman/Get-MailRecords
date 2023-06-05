@@ -69,6 +69,12 @@ function Get-MailRecords {
     Has only been tested with 5.1 and 7 PS Versions. Requires a minimum of PS 5.1
     Parts of this code were written by Jordan W.
     #>
+
+    # Check for Resolve-DnsName
+    if (-not (Get-Command -Name Resolve-DnsName -ErrorAction SilentlyContinue)) {
+        Write-Error "There is a problem with Resolve-DnsName and this function can't continue.".
+        return
+    }
     
     #if email address pull down to domain,uri pull down to domain and if not test domain
     $TestDomain = $null
@@ -232,16 +238,8 @@ function Get-MailRecords {
             }
         }
 
-        If ($resultdkim -eq 'unfound' -and $resultdkim -ne 'True' <#-and $Selector -eq 'mail'#>) {
+        If ($resultdkim -eq 'unfound' -and $resultdkim -ne 'True') {
             $Selector = 'unprovided'
-            $DkimResult = 'DKIM-Record not found.'
-        }
-        Elseif ($resultdkim -eq $false) {
-            $DkimResult = 'DKIM-Record not found.'
-        }
-        Else {
-            $DkimResult = 'DKIM-record found.'
-            #testing
         }
 
         [PSCustomObject]@{
@@ -250,7 +248,6 @@ function Get-MailRecords {
             "SPF_$_"   = $resultspf
             "DMARC_$_" = $resultdmarc
             "DKIM_$_"  = $resultdkim
-            DKIMRESULT = $DkimResult
             SELECTOR   = $Selector
             DOMAIN     = $TestDomain
             RECORDTYPE = $_
