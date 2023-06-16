@@ -76,7 +76,7 @@ function Get-MailRecords {
         return
     }
     
-    #if email address pull down to domain,uri pull down to domain and if not test domain
+    # if email address pull down to domain,uri pull down to domain and if not test domain
     $TestDomain = $null
     Try {
         $TestDomain = ([Net.Mail.MailAddress]$Domain).Host
@@ -90,28 +90,26 @@ function Get-MailRecords {
         }
     }
     
-    #Removes @
+    # Removes @
     If ([string]::IsNullOrWhiteSpace($TestDomain)) {
         Try { 
             [string]$TestDomain = $Domain.Replace('@', '').Trim()
         }
         Catch {
-            Write-Error "Problem with $Domain as entered. Please help."
+            Write-Error "Problem with $Domain as entered. Please read help."
             break script
         }
     }
 
-    $RecordType = $RecordType.ToUpper()
-    
-    #get the last two items in the array and join them with dot
+    # get the last two items in the array and join them with dot
     if (-not $Sub) {
         [string]$TestDomain = $TestDomain.Split(".")[-2, -1] -join "."
     }
     
-    #places a value other than true or false if dkim selector is not provided.
+    # places a value other than true or false if dkim selector is not provided.
     $resultdkim = 'unfound'
 
-    #If Both then loop through.
+    # If both for record type then loop through.
     $RecordTypeTest = @()
     if ($RecordType -eq 'BOTH') {
         $RecordTypeTest = @(
@@ -122,12 +120,14 @@ function Get-MailRecords {
     Else {
         $RecordTypeTest = $RecordType
     }
-
-    #Returns true or false for A record.
+    
+    $RecordType = $RecordType.ToUpper()
+    
+    # Returns true or false for A record.
     [string]$resultA = If (Resolve-DnsName -Name $TestDomain -Type 'A' -Server "$Server" -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq 'a' } ) { $true } Else { $false }
     
     $Output = $RecordTypeTest | ForEach-Object {   
-        #more detail on the return for SPF, DMARC and DKIM (If selector is provided)
+        # more detail on the return for SPF, DMARC and DKIM (If selector is provided)
         If ($Flag) {
             if ($Selector -ne 'unprovided') {
                 [string]$resultdkim = If (Resolve-DnsName -Type "$_" -Name "$($Selector)._domainkey.$($TestDomain)" -Server "$Server" -DnsOnly -ErrorAction SilentlyContinue | where-object { $_.strings -match "v=DKIM1" } ) { $true } Else { $false }
