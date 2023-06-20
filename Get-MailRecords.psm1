@@ -14,7 +14,7 @@ get-mailrecords -domain cnn.facebook.com -selector face
 switch -flag will return simple true of false
 get-mailrecords -domain cnn.facebook.com -flag
 
-string -server will use whatever value is inputed. must be ip4 default is 8.8.8.8
+string -server will use whatever value is inputted. must be ip4 default is 8.8.8.8
 get-mailrecords -domain cnn.com -server 1.1.1.1
 
 string -recordType can be set to txt or cname and will try to find the related records. Default is TXT.
@@ -96,7 +96,7 @@ function Get-MailRecords {
             [string]$TestDomain = $Domain.Replace('@', '').Trim()
         }
         Catch {
-            Write-Error "Problem with $Domain as entered. Please read help."
+            Write-Error "Problem with $Domain as entered. Please read command help."
             break script
         }
     }
@@ -130,12 +130,12 @@ function Get-MailRecords {
         # more detail on the return for SPF, DMARC and DKIM (If selector is provided)
         If ($Flag) {
             if ($Selector -ne 'unprovided') {
-                [string]$resultdkim = If (Resolve-DnsName -Type "$_" -Name "$($Selector)._domainkey.$($TestDomain)" -Server "$Server" -DnsOnly -ErrorAction SilentlyContinue | where-object { $_.strings -match "v=DKIM1" } ) { $true } Else { $false }
+                [string]$resultdkim = If (Resolve-DnsName -Type "$_" -Name "$($Selector)._domainkey.$($TestDomain)" -Server "$Server'' -DnsOnly -ErrorAction SilentlyContinue | where-object { $_.strings -match "v=DKIM1" } ) { $true } Else { $false }
             }
 
-            [string]$resultmx = If (Resolve-DnsName -Name $TestDomain -Type 'MX' -Server "$Server" -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq 'mx' } ) { $true } Else { $false }
+            [string]$resultmx = If (Resolve-DnsName -Name $TestDomain -Type 'MX' -Server "$Server'' -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq 'mx' } ) { $true } Else { $false }
         
-            [string]$resultspf = If (Resolve-DnsName -Name $TestDomain -Type "$_"-Server "$Server" -DnsOnly -ErrorAction SilentlyContinue | where-object { $_.strings -match "v=spf1" } ) { $true } Else { $false }
+            [string]$resultspf = If (Resolve-DnsName -Name $TestDomain -Type "$_"-Server "$Server'' -DnsOnly -ErrorAction SilentlyContinue | where-object { $_.strings -match "v=spf1" } ) { $true } Else { $false }
             
             [string]$resultDMARC = if (Resolve-DnsName -Name "_dmarc.$($TestDomain)" -Type "$_" -Server "$Server" -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.strings -match "v=DMARC1" } ) { $true } Else { $false }
         }
