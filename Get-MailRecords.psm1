@@ -11,8 +11,8 @@ get-mailrecords -domain cnn.facebook.com -sub
 string -selector will test dkim with the string provided
 get-mailrecords -domain cnn.facebook.com -selector face
 
-switch -flag will return simple true of false
-get-mailrecords -domain cnn.facebook.com -flag
+switch -Logical will return simple true of false
+get-mailrecords -domain cnn.facebook.com -Logical
 
 string -server will use whatever value is inputted. must be ip4 default is 8.8.8.8
 get-mailrecords -domain cnn.com -server 1.1.1.1
@@ -21,11 +21,11 @@ string -recordType can be set to txt or cname and will try to find the related r
 get-mailrecords -domain cnn.com -recordType cname
 
 Examples:
-get-mailrecords -domain cnn.facebook.com -sub -flag -selector face
+get-mailrecords -domain cnn.facebook.com -sub -Logical -selector face
 get-mailrecords -domain cnn.facebook.com -sub -selector face
 get-mailrecords -domain cnn.facebook.com -selector face
-get-mailrecords -domain cnn.facebook.com -sub -flag
-get-mailrecords -domain cnn.facebook.com -sub -flag -selector face
+get-mailrecords -domain cnn.facebook.com -sub -Logical
+get-mailrecords -domain cnn.facebook.com -sub -Logical -selector face
 get-mailrecords -domain cnn.facebook.com -sub -selector face
 get-mailrecords -domain cnn.facebook.com -selector face
 
@@ -54,12 +54,12 @@ function Get-MailRecords {
         [parameter(Mandatory = $false,
             HelpMessage = "Allow subdomain. Example mail.facebook.com")][switch]$Sub,
         [parameter(Mandatory = $false,
-            HelpMessage = "Return simple true or false for A,MX,SPF,DMARC and DKIM. DKIM needs -Selector to appear.")][switch]$Flag,
+            HelpMessage = "Return simple true or false for A,MX,SPF,DMARC and DKIM. DKIM needs -Selector to appear.")][switch]$Logical,
         [parameter(Mandatory = $false,
             HelpMessage = "DKIM selector. DKIM won't be checked without this string.")][string]$Selector = 'unprovided',
         [parameter(Mandatory = $false,
             HelpMessage = "Looks for record type TXT or CNAME or BOTH for SPF,DMARC and DKIM if -Selector is used. The default record type is TXT.")]
-        [ValidateSet('TXT','CNAME','BOTH')][ValidateNotNullOrEmpty()][string]$RecordType = 'TXT',
+        [ValidateSet('TXT', 'CNAME', 'BOTH')][ValidateNotNullOrEmpty()][string]$RecordType = 'TXT',
         [parameter(Mandatory = $false,
             HelpMessage = "Server to query the default is 8.8.8.8")][ValidateNotNullOrEmpty()][string]$Server = '8.8.8.8'
     )
@@ -79,11 +79,11 @@ function Get-MailRecords {
     # if email address pull down to domain,uri pull down to domain and if not test domain
     $TestDomain = $null
     Try {
-        $TestDomain = ([Net.Mail.MailAddress]$Domain).Host
+        [string]$TestDomain = ([System.Uri]$Domain).Host.TrimStart('www.')
     }
     Catch {
         try {
-            $TestDomain = ([System.Uri]$Domain).Host
+            [string]$TestDomain = ([Net.Mail.MailAddress]$Domain).Host
         }
         catch {
             [string]$TestDomain = $Domain
@@ -93,17 +93,17 @@ function Get-MailRecords {
     # Removes @
     If ([string]::IsNullOrWhiteSpace($TestDomain)) {
         Try { 
-            [string]$TestDomain = $Domain.Replace('@','').Trim()
+            [string]$TestDomain = $Domain.Replace('@', '').Trim()
         }
         Catch {
             Write-Error "Problem with $Domain as entered. Please read command help."
-            break script
+            Return
         }
     }
 
     # get the last two items in the array and join them with dot
     if (-not $Sub) {
-        [string]$TestDomain = $TestDomain.Split(".")[-2,-1] -join "."
+        [string]$TestDomain = $TestDomain.Split(".")[-2, -1] -join "."
     }
     
     # places a value other than true or false if dkim selector is not provided.
@@ -128,7 +128,7 @@ function Get-MailRecords {
     
     $Output = $RecordTypeTest | ForEach-Object {   
         # more detail on the return for SPF,DMARC and DKIM (If selector is provided)
-        If ($Flag) {
+        If ($Logical) {
             if ($Selector -ne 'unprovided') {
                 [string]$resultdkim = If (Resolve-DnsName -Type $($_) -Name "$($Selector)._domainkey.$($TestDomain)" -Server $($Server) -DnsOnly -ErrorAction SilentlyContinue | where-object { $_.strings -match "v=DKIM1" } ) { $true } Else { $false }
             }
@@ -153,7 +153,7 @@ function Get-MailRecords {
             }
             Else {
                 $Outmx = foreach ($record in $Mx) {
-                    $record | Select-object @{n = "Name"; e = { $_.NameExchange } },@{n = "Pref"; e = { $_.Preference } },TTL
+                    $record | Select-object @{n = "Name"; e = { $_.NameExchange } }, @{n = "Pref"; e = { $_.Preference } }, TTL
                 }
                 [string]$resultmx = ($Outmx | Out-String).trimend("`r`n").Trim()
             }
@@ -199,11 +199,11 @@ function Get-MailRecords {
                 'selector1' # Microsoft
                 'selector2' # Microsoft
                 'pps1' #Proofpoint
-                'google',# Google
-                'everlytickey1',# Everlytic
-                'everlytickey2',# Everlytic
-                'eversrv',# Everlytic OLD selector
-                'k1',# Mailchimp / Mandrill
+                'google', # Google
+                'everlytickey1', # Everlytic
+                'everlytickey2', # Everlytic
+                'eversrv', # Everlytic OLD selector
+                'k1', # Mailchimp / Mandrill
                 'mxvault' # Global Micro
                 'dkim' # Hetzner
                 'mail'
@@ -216,7 +216,7 @@ function Get-MailRecords {
                 $DKIM = Resolve-DnsName -Type $($TempType) -Name "$($Selector)._domainkey.$($TestDomain)" -Server $($Server) -DnsOnly -ErrorAction SilentlyContinue 
                 foreach ($Item in $DKIM) {
                     if ($Item.type -eq $($TempType) -and $null -ne $Item.Strings -and $Item.Strings -match "v=DKIM1") {
-                        if ($Flag) {
+                        if ($Logical) {
                             $resultdkim = $true
                         }
                         Else {
