@@ -1,10 +1,10 @@
 .SYNOPSIS
-Performs various checks on a given domain name,email address,or URL.
+Performs A,MX,NS,SPF,DMARC,and DKIM DNS queries on a given domain name,email address,or URL.
 This function has an alias GMR.
 
 .DESCRIPTION
 This function performs various checks on a given domain name,email address,or URL. It checks for the existence of DNS records A,MX,NS,SPF,DMARC,and DKIM.
-This function can check for record type TXT,CNAME,and BOTH for SPF,DMARC,and DKIM.
+This function will check for record type TXT,CNAME,and BOTH for SPF,DMARC,and DKIM.
 This function will attempt to find the DKIM record if the selector is not provided.
 This function has an alias GMR.
 Add this function to your powershell profile then run like the following.
