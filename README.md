@@ -1,5 +1,5 @@
 .SYNOPSIS
-A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC and DKIM DNS on given domain name, email address or URL. This function has an alias GMR.
+A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC and DKIM on given domain name, email address or URL. This function has an alias GMR.
 
 .DESCRIPTION
 This function performs various checks on a given domain name,email address,or URL. It checks for the existence of DNS records A,MX,NS,SPF,DMARC,and DKIM.
