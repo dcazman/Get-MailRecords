@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Performs various checks on a given domain name,email address,or URL.
+A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC and DKIM DNS on given domain name, email address or URL. 
 This function has an alias GMR.
 
 .DESCRIPTION
