@@ -12,7 +12,7 @@ Add this function to your powershell profile then run like the following.
 Note: More selectors to search can be added to $DkimSelectors right at the top of the function.
 
 .PARAMETER Domain
-The full domain name,email address,or URL to check.
+The full domain name,email address,or URL to check. MANDATORY parameter.
 
 .PARAMETER Sub
 Allow subdomain. If specified,subdomains will be included in the checks.
@@ -48,6 +48,8 @@ Get-MailRecords -Domain cnn.com -RecordType cname
 
 .EXAMPLE
 GMR (Domain prompt will occur)
+GMR -Domain cnn.com
+
 #>
 function Get-MailRecords {
     #Requires -Version 5.1
@@ -71,12 +73,12 @@ function Get-MailRecords {
             HelpMessage = "DKIM selector. DKIM won't be checked without this string.")][string]$Selector = 'unprovided',
         [parameter(Mandatory = $false,
             HelpMessage = "Looks for record type TXT or CNAME or BOTH for SPF,DMARC and DKIM if -Selector is used. The default record type is TXT.")]
-        [ValidateSet('TXT','CNAME','BOTH')][ValidateNotNullOrEmpty()][string]$RecordType = 'TXT',
+        [ValidateSet('TXT', 'CNAME', 'BOTH')][ValidateNotNullOrEmpty()][string]$RecordType = 'TXT',
         [parameter(Mandatory = $false,
             HelpMessage = "Server to query the default is 8.8.8.8")][ValidateNotNullOrEmpty()][string]$Server = '8.8.8.8'
     )
 
-    <#$DkimSelectors
+    <#
     Author: Dan Casmas,07/2023. Designed to work on Windows OS. Has only been tested with PowerShell versions 5.1 and 7. Requires a minimum of PowerShell 5.1.
     Parts of this code were written by Jordan W.
     #>
@@ -91,11 +93,11 @@ function Get-MailRecords {
         "selector1", # Microsoft
         "selector2", # Microsoft
         "pps1", #Proofpoint
-        "google",# Google
-        "everlytickey1",# Everlytic
-        "everlytickey2",# Everlytic
-        "eversrv",# Everlytic OLD selector
-        "k1",# Mailchimp / Mandrill
+        "google", # Google
+        "everlytickey1", # Everlytic
+        "everlytickey2", # Everlytic
+        "eversrv", # Everlytic OLD selector
+        "k1", # Mailchimp / Mandrill
         "mxvault", # Global Micro
         "dkim", # Hetzner
         "mail"
@@ -124,7 +126,7 @@ function Get-MailRecords {
     # Removes @
     If ([string]::IsNullOrWhiteSpace($TestDomain)) {
         Try { 
-            [string]$TestDomain = $Domain.Replace('@','').Trim()
+            [string]$TestDomain = $Domain.Replace('@', '').Trim()
         }
         Catch {
             Write-Error "Problem with $Domain as entered. Please read command help."
@@ -134,7 +136,7 @@ function Get-MailRecords {
 
     # get the last two items in the array and join them with dot
     if (-not $Sub) {
-        [string]$TestDomain = $TestDomain.Split(".")[-2,-1] -join "."
+        [string]$TestDomain = $TestDomain.Split(".")[-2, -1] -join "."
     }
     
     # places a value other than true or false if dkim selector is not provided.
@@ -162,7 +164,7 @@ function Get-MailRecords {
     }
     Else {
         $Outmx = foreach ($record in $Mx) {
-            $record | Select-object @{n = "Name"; e = { $_.NameExchange } },@{n = "Pref"; e = { $_.Preference } },TTL
+            $record | Select-object @{n = "Name"; e = { $_.NameExchange } }, @{n = "Pref"; e = { $_.Preference } }, TTL
         }
         [string]$resultmx = ($Outmx | Out-String).trimend("`r`n").Trim()
     }
@@ -174,7 +176,7 @@ function Get-MailRecords {
     }
     Else {
         $OutNS = foreach ($Item in $NS) {
-            $Item | Select-object NameHost,TTL
+            $Item | Select-object NameHost, TTL
         }
         [string]$resultsNS = ($OutNS | Select-Object -First 2 | Out-String).trimend("`r`n").Trim()
     }
@@ -228,6 +230,8 @@ function Get-MailRecords {
         }
 
         If ($Selector -eq 'unprovided' -and ($resultdkim -eq $false -or $resultdkim -eq 'unfound')) {
+            # Break the loop if DKIM is found.
+            $BreakFlag = $false
             # Look for DKIM if not provided
             foreach ($line in $DkimSelectors) {
                 # get DKIM record if exist
@@ -242,12 +246,15 @@ function Get-MailRecords {
                         Else {
                             [string]$resultdkim = $Item.Strings
                             $Selector = $line
+                            $BreakFlag = $true
+                            break
                         }
-                        break
                     }
                     $Item = $null
                 }
-                break
+                If ($BreakFlag) {
+                    break
+                }
             }
         }
 
