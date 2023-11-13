@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC and DKIM on given domain name, email address or URL. 
+A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC and DKIM on a given domain name, email address or URL. 
 This function has an alias GMR.
 
 .DESCRIPTION
@@ -10,6 +10,7 @@ This function will attempt to find the DKIM record if the selector is not provid
 This function has an alias GMR.
 Add this function to your powershell profile then run like the following.
 Note: More selectors to search can be added to $DkimSelectors right at the top of the function.
+Note: The first 2 NS results are returned if possible.
 
 .PARAMETER Domain
 The full domain name,email address,or URL to check. MANDATORY parameter.
@@ -83,7 +84,7 @@ function Get-MailRecords {
     Parts of this code were written by Jordan W.
     #>
 
-    # Add selectors you want this function to search.
+    # Add more selectors here you want this function to search them.
     $DkimSelectors = $null
     $DkimSelectors = @(
         "default",
@@ -183,7 +184,7 @@ function Get-MailRecords {
 
     $SelectorHold = $Selector
 
-    # Loop and ouput
+    # Loop and output
     $Output = @{}
     $Output = $RecordTypeTest | ForEach-Object {
         #Hold onto record type
