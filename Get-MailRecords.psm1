@@ -26,30 +26,39 @@ The type of records to check for SPF, DMARC, and DKIM. Valid options are 'TXT', 
 The DNS server to query. The default is '8.8.8.8'.
 
 .EXAMPLE
+# Example 1: Get basic mail records for facebook.com
 Get-MailRecords -Domain facebook.com
 GMR -domain facebook.com
 
 .EXAMPLE
+# Example 2: Get mail records including subdomains for facebook.com
 Get-MailRecords -Domain facebook.com -Sub
+GMR -domain facebook.com -Sub
 
 .EXAMPLE
+# Example 3: Get mail records for a subdomain with a specific DKIM selector
 Get-MailRecords -Domain cnn.facebook.com -Sub -Selector face
 
 .EXAMPLE
-Get-MailRecords -Domain cnn.facebook.com -Selector face
-GMR -domain https://cnn.facebook.com -Selector face
+# Example 4: Get DKIM records for a subdomain with an automatically determined selector
+Get-MailRecords -Domain cnn.facebook.com -Selector unprovided
+GMR -domain https://cnn.facebook.com -Selector unprovided
 
 .EXAMPLE
+# Example 5: Get mail records for a domain using a custom DNS server
 Get-MailRecords -Domain cnn.com -Server 1.1.1.1
 
 .EXAMPLE
+# Example 6: Get CNAME records for a domain
 Get-MailRecords -Domain cnn.com -RecordType cname
 
 .EXAMPLE
+# Example 7: Prompt for the domain name and retrieve mail records
 GMR (Domain prompt will occur)
 
 .EXAMPLE
-GMR -Domain cnn.com
+# Example 8: Specify the domain and retrieve mail records
+GMR -Domain https://cnn.com
 
 .LINK
 https://github.com/dcazman/Get-MailRecords
@@ -59,13 +68,12 @@ Author: Dan Casmas, 07/2023. Designed to work on Windows OS. Has only been teste
 Parts of this code were written by Jordan W.
 
 .NOTES
-To add more selectors to search go just below param variables.
+To add more selectors to search, modify the $DkimSelectors array. Just below param variables.
 
 .NOTES
-The first 2 Nameservers results are returned if possible.
+Only the first 2 Nameservers results are returned if possible.
 #>
 function Get-MailRecords {
-    #Requires -Version 5.1
     [Alias("GMR")]
     [CmdletBinding()]
     param (
@@ -80,49 +88,37 @@ function Get-MailRecords {
                 }
             })]
         [string]$Domain,
+
         [parameter(Mandatory = $false, HelpMessage = "Allow subdomain. Example: mail.facebook.com")]
         [switch]$Sub,
+
         [parameter(Mandatory = $false, HelpMessage = "DKIM selector. DKIM won't be checked without this string.")]
         [ValidateNotNullOrEmpty()]
         [string]$Selector = 'unprovided',
+
         [parameter(Mandatory = $false, HelpMessage = "Looks for record type TXT or CNAME or BOTH for SPF, DMARC, and DKIM if -Selector is used. The default record type is TXT.")]
         [ValidateSet('TXT', 'CNAME', 'BOTH')]
         [ValidateNotNullOrEmpty()]
         [string]$RecordType = 'TXT',
+
         [parameter(Mandatory = $false, HelpMessage = "Server to query. The default is 8.8.8.8")]
         [ValidateNotNullOrEmpty()]
         [string]$Server = '8.8.8.8'
     )
     
-    # Check if selector is provided
-    if ($Selector -eq 'unprovided') {
-        # List of DKIM selectors
-        $DkimSelectors = @(
-            "default",
-            "s",
-            "s1",
-            "s2",
-            "selector1", # Microsoft
-            "selector2", # Microsoft
-            "pps1", # Proofpoint
-            "google", # Google
-            "everlytickey1", # Everlytic
-            "everlytickey2", # Everlytic
-            "eversrv", # Everlytic OLD selector
-            "k1", # Mailchimp / Mandrill
-            "mxvault", # Global Micro
-            "dkim", # Hetzner
-            "mail"
-        )
-    }
-    
-    # Check for Resolve-DnsName
+    # Initialize DKIM selectors
+    $DkimSelectors = @(
+        "default", "s", "s1", "s2", "selector1", "selector2", "pps1", "google", "everlytickey1", "everlytickey2",
+        "eversrv", "k1", "mxvault", "dkim", "mail", "s1024", "s2048", "s4096"
+    )
+
+    # Check if Resolve-DnsName cmdlet is available
     if (-not (Get-Command -Name Resolve-DnsName -ErrorAction SilentlyContinue)) {
-        Write-Error "There is a problem with Resolve-DnsName, and this function can't continue."
+        Write-Error "The Resolve-DnsName cmdlet is not available. Unable to continue."
         return $null
     }
-    
-    # if email address pull down to domain, uri pull down to domain and if not test domain
+
+    # Validate and parse the input domain
     $TestDomain = try {
         ([System.Uri]$Domain).Host.TrimStart('www.')
     }
@@ -134,8 +130,8 @@ function Get-MailRecords {
             $Domain
         }
     }
-    
-    # Removes @
+
+    # Remove '@' if present
     if ([string]::IsNullOrWhiteSpace($TestDomain)) {
         try {
             $TestDomain = $Domain.Replace('@', '').Trim()
@@ -145,15 +141,15 @@ function Get-MailRecords {
             return $null
         }
     }
-    
-    # get the last two items in the array and join them with a dot
+
+    # Extract the last two items in the array and join them with a dot
     if (-not $Sub) {
         $TestDomain = $TestDomain.Split(".")[-2, -1] -join "."
     }
-    
-    # places a value other than true or false if DKIM selector is not provided.
+
+    # Initialize DKIM result
     $resultdkim = 'unfound'
-    
+
     #NameServer function
     function Get-NS {
         param (
@@ -182,74 +178,99 @@ function Get-MailRecords {
     
         return $resultsNS   # Return the formatted DNS records as a string
     }
-    
-    # If both for record type then loop through.
+
+    # Define function to get SPF record
+    function Get-SPF {
+        param (
+            [Parameter(Mandatory = $true)]
+            [string]$Domain,
+
+            [Parameter(Mandatory = $true)] 
+            [string]$Server,
+
+            [Parameter(Mandatory = $true)] 
+            [string]$Type        
+        )
+
+        $SPF = Resolve-DnsName -Name $Domain -Type $Type -Server $Server -DnsOnly -ErrorAction SilentlyContinue
+
+        $resultspf = if ([string]::IsNullOrWhiteSpace($SPF)) {
+            Return $false
+        }
+        Else {
+            $SPF.Strings -like "v=spf1*"
+        }
+
+        return $resultspf
+    }
+
+    # If both record types are specified, create an array; otherwise, use the specified type
     $RecordTypeTest = @()
     if ($RecordType -eq 'BOTH') {
-        $RecordTypeTest = @(
-            'TXT',
-            'CNAME'
-        )
+        $RecordTypeTest = @('TXT', 'CNAME')
     }
-    Else {
+    else {
         $RecordTypeTest = $RecordType.ToUpper()
     }
-    
-    # Hold the selector
+
+    # Check if A record exists
+    $resultA = $null -ne (Resolve-DnsName -Name $TestDomain -Type 'A' -Server $Server -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq 'a' })
+
+    # Check if MX record exists
+    $Mx = Resolve-DnsName -Name $TestDomain -Type 'MX' -Server $Server -DnsOnly -ErrorAction SilentlyContinue | Sort-Object -Property Preference
+    $resultmx = if ([string]::IsNullOrWhiteSpace($MX)) {
+        $false
+    }
+    else {
+        $Outmx = $Mx | ForEach-Object {
+            $_ | Select-Object @{n = "Name"; e = { $_.NameExchange } }, @{n = "Pref"; e = { $_.Preference } }, TTL
+        }
+        ($Outmx | Out-String).TrimEnd("`r`n").Trim()
+    }
+
+    # Hold the original selector value
     $SelectorHold = $Selector
-    
-    # Loop and output
+
+    # Loop through specified record types
     $Output = $RecordTypeTest | ForEach-Object {
         $TempType = $_
-    
-        # get A record if exist
-        $resultA = if (Resolve-DnsName -Name $TestDomain -Type 'A' -Server $Server -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq 'a' }) { $true } else { $false }
-    
-        # get MX record if exist
-        $Mx = Resolve-DnsName -Name $TestDomain -Type 'MX' -Server $Server -DnsOnly -ErrorAction SilentlyContinue | Sort-Object -Property Preference
-        $resultmx = if ([string]::IsNullOrWhiteSpace($Mx.NameExchange)) {
+
+        # Get NS records
+        $resultsNS = Get-NS -Domain $TestDomain -Server $Server
+
+        # Get SPF record
+        $resultspf = Get-SPF -Domain $TestDomain -Server $Server -Type $TempType
+
+        # Get DMARC record
+        $DMARC = Resolve-DnsName -Name "_dmarc.$TestDomain" -Type $TempType -Server $Server -DnsOnly -ErrorAction SilentlyContinue
+        $resultdmarc = If ([string]::IsNullOrWhiteSpace($DMARC)) {
             $false
         }
-        else {
-            $Outmx = foreach ($record in $Mx) {
-                $record | Select-Object @{n = "Name"; e = { $_.NameExchange } }, @{n = "Pref"; e = { $_.Preference } }, TTL
-            }
-            ($Outmx | Out-String).TrimEnd("`r`n").Trim()
+        Else {
+            ($DMARC.Strings -like "v=DMARC1*") -join ' '
         }
-    
-        # get NS record if exist
-        $resultsNS = Get-NS -Domain $TestDomain -Server $Server
-    
-        # Test parent for NS if -sub and no NS returned
-        if ($resultsNS -eq $false -and $Sub) {
-            $resultsNS = Get-NS -Domain ($Domain.Split(".")[-2, -1] -join ".") -Server $Server
-        }
-    
-        # get SPF record if exist
-        $SPF = Resolve-DnsName -Name $TestDomain -Type $TempType -Server $Server -DnsOnly -ErrorAction SilentlyContinue
-        $resultspf = ($SPF.Strings -like "v=spf1*" | Out-String).TrimEnd("`r`n").Trim()
-    
-        # get DMARC record if exist
-        $DMARC = Resolve-DnsName -Name "_dmarc.$TestDomain" -Type $TempType -Server $Server -DnsOnly -ErrorAction SilentlyContinue
-        $resultdmarc = ($DMARC.strings -like "v=DMARC1*" | Out-String).TrimEnd("`r`n").Trim()
-    
+
         # Start of DKIM checking
         if ($Selector -ne 'unprovided') {
             # get DKIM record if exist
             $DKIM = Resolve-DnsName -Type $($TempType) -Name "$($Selector)._domainkey.$($TestDomain)" -Server $($Server) -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq $($TempType) }
-            $resultdkim = $false
-            foreach ($Item in $DKIM) {
-                if ($Item.type -eq $($TempType) -and $null -ne $Item.Strings -and $Item.Strings -match "v=DKIM1") {
-                    [string]$resultdkim = $Item.Strings
-                    break
+            $resultdkim = If ([string]::IsNullOrWhiteSpace($DKIM)) { 
+                $false
+            }
+            Else {
+                foreach ($Item in $DKIM) {
+                    if ($Item.type -eq $($TempType) -and $Item.Strings -match "v=DKIM1") {
+                        $Item.Strings
+                        break
+                    }
                 }
             }
         }
-    
-        If ($Selector -eq 'unprovided' -and ($resultdkim -eq $false -or $resultdkim -eq 'unfound')) {
+
+        # Look for DKIM if not provided
+        If ($Selector -eq 'unprovided') {
             # Break the loop if DKIM is found.
             $BreakFlag = $false
-            # Look for DKIM if not provided
             foreach ($line in $DkimSelectors) {
                 # get DKIM record if exist
                 $DKIM = $null
@@ -265,13 +286,13 @@ function Get-MailRecords {
                 }
             }
         }
-    
+
         # Holds the selector
         if ($resultdkim -eq $false) {
             $Selector = $SelectorHold
             $resultdkim = 'unfound'
         }
-    
+
         [PSCustomObject]@{
             A                 = $resultA
             MX                = $resultmx
@@ -285,7 +306,11 @@ function Get-MailRecords {
             NS_First2         = $resultsNS
         }
     }
-    
-    # Final
+
+    # If Sub is true, recursively call the function with the original parameters
+    If ($Sub -eq $true) {
+        Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $Selector
+    }
+
     return $Output
 }
