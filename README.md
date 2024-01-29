@@ -25,30 +25,39 @@ The type of records to check for SPF, DMARC, and DKIM. Valid options are 'TXT', 
 The DNS server to query. The default is '8.8.8.8'.
 
 .EXAMPLE
+# Example 1: Get basic mail records for facebook.com
 Get-MailRecords -Domain facebook.com
 GMR -domain facebook.com
 
 .EXAMPLE
+# Example 2: Get mail records including subdomains for facebook.com
 Get-MailRecords -Domain facebook.com -Sub
+GMR -domain facebook.com -Sub
 
 .EXAMPLE
+# Example 3: Get mail records for a subdomain with a specific DKIM selector
 Get-MailRecords -Domain cnn.facebook.com -Sub -Selector face
 
 .EXAMPLE
-Get-MailRecords -Domain cnn.facebook.com -Selector face
-GMR -domain https://cnn.facebook.com -Selector face
+# Example 4: Get DKIM records for a subdomain with an automatically determined selector
+Get-MailRecords -Domain cnn.facebook.com -Selector unprovided
+GMR -domain https://cnn.facebook.com -Selector unprovided
 
 .EXAMPLE
+# Example 5: Get mail records for a domain using a custom DNS server
 Get-MailRecords -Domain cnn.com -Server 1.1.1.1
 
 .EXAMPLE
+# Example 6: Get CNAME records for a domain
 Get-MailRecords -Domain cnn.com -RecordType cname
 
 .EXAMPLE
+# Example 7: Prompt for the domain name and retrieve mail records
 GMR (Domain prompt will occur)
 
 .EXAMPLE
-GMR -Domain cnn.com
+# Example 8: Specify the domain and retrieve mail records
+GMR -Domain https://cnn.com
 
 .LINK
 https://github.com/dcazman/Get-MailRecords
@@ -58,7 +67,7 @@ Author: Dan Casmas, 07/2023. Designed to work on Windows OS. Has only been teste
 Parts of this code were written by Jordan W.
 
 .NOTES
-To add more selectors to search go just below param variables.
+To add more selectors to search, modify the $DkimSelectors array. Just below param variables.
 
 .NOTES
-The first 2 Name Servers results are returned if possible.
+Only the first 2 Nameservers results are returned if possible.
