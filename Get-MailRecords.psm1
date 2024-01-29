@@ -309,7 +309,7 @@ function Get-MailRecords {
 
     # If Sub is true, recursively call the function with the original parameters
     If ($Sub -eq $true) {
-        Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $Selector
+        Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $SelectorHold
     }
 
     return $Output
