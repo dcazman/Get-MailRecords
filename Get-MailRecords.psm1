@@ -108,8 +108,7 @@ function Get-MailRecords {
     
     # Initialize DKIM selectors
     $DkimSelectors = @(
-        "default", "s", "s1", "s2", "selector1", "selector2", "pps1", "google", "everlytickey1", "everlytickey2",
-        "eversrv", "k1", "mxvault", "dkim", "mail", "s1024", "s2048", "s4096"
+        "default", "s", "s1", "s2", "selector1", "selector2", "pps1", "google", "everlytickey1", "everlytickey2", "eversrv", "k1", "mxvault", "dkim", "mail", "s1024", "s2048", "s4096"
     )
 
     # Check if Resolve-DnsName cmdlet is available
@@ -260,7 +259,7 @@ function Get-MailRecords {
             Else {
                 foreach ($Item in $DKIM) {
                     if ($Item.type -eq $($TempType) -and $Item.Strings -match "v=DKIM1") {
-                        $Item.Strings
+                        [string]$Item.Strings
                         break
                     }
                 }
