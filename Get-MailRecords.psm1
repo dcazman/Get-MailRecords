@@ -16,6 +16,9 @@ The full domain name, email address, or URL to retrieve. MANDATORY parameter.
 .PARAMETER Sub
 Allow subdomain. If specified, subdomains will be included in the checks.
 
+.PARAMETER JustSub
+A switch that will return only subdomain information.
+
 .PARAMETER Selector
 The DKIM selector to use. If provided, DKIM records will be checked. If not provided, an attempt will be made to find the DKIM record. Default is unprovided.
 
@@ -103,7 +106,10 @@ function Get-MailRecords {
 
         [parameter(Mandatory = $false, HelpMessage = "Server to query. The default is 8.8.8.8")]
         [ValidateNotNullOrEmpty()]
-        [string]$Server = '8.8.8.8'
+        [string]$Server = '8.8.8.8',
+
+        [parameter(Mandatory = $false, HelpMessage = "Output is only sub domain Example: mail.facebook.com")]
+        [switch]$JustSub
     )
     
     # Initialize DKIM selectors
@@ -142,7 +148,7 @@ function Get-MailRecords {
     }
 
     # Extract the last two items in the array and join them with a dot
-    if (-not $Sub) {
+    if (-not $Sub -and -not $JustSub) {
         $TestDomain = $TestDomain.Split(".")[-2, -1] -join "."
     }
 
@@ -191,16 +197,18 @@ function Get-MailRecords {
             [string]$Type        
         )
 
+        # Resolve the DNS name
         $SPF = Resolve-DnsName -Name $Domain -Type $Type -Server $Server -DnsOnly -ErrorAction SilentlyContinue
 
-        $resultspf = if ([string]::IsNullOrWhiteSpace($SPF)) {
-            Return $false
-        }
-        Else {
-            $SPF.Strings -like "v=spf1*"
-        }
+        # Check for SPF strings in the results
+        $spfRecord = $SPF.Strings | Where-Object { $_ -like "v=spf1*" } -ErrorAction SilentlyContinue
 
-        return $resultspf
+        # Return the SPF string if found, otherwise return $false
+        if ([string]::IsNullOrWhiteSpace($spfRecord)) {
+            return $false
+        }
+      
+        return $spfRecord
     }
 
     # If both record types are specified, create an array; otherwise, use the specified type
@@ -215,16 +223,32 @@ function Get-MailRecords {
     # Check if A record exists
     $resultA = $null -ne (Resolve-DnsName -Name $TestDomain -Type 'A' -Server $Server -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq 'a' })
 
-    # Check if MX record exists
-    $Mx = Resolve-DnsName -Name $TestDomain -Type 'MX' -Server $Server -DnsOnly -ErrorAction SilentlyContinue | Sort-Object -Property Preference
-    $resultmx = if ([string]::IsNullOrWhiteSpace($MX)) {
-        $false
-    }
-    else {
-        $Outmx = $Mx | ForEach-Object {
-            $_ | Select-Object @{n = "Name"; e = { $_.NameExchange } }, @{n = "Pref"; e = { $_.Preference } }, TTL
+    try {
+        # Query the DNS server for MX records
+        $mxRecords = Resolve-DnsName -Name $TestDomain -Type 'MX' -Server $Server -DnsOnly -ErrorAction Stop |
+        Sort-Object -Property Preference
+
+        # Validate if MX records exist
+        if ($mxRecords -and $mxRecords.Type -contains 'MX') {
+            # Format and return the MX records
+            $formattedRecords = $mxRecords |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_.NameExchange) } |
+            Select-Object @{n = "Name"; e = { $_.NameExchange } }, 
+            @{n = "Preference"; e = { $_.Preference } }, 
+            @{n = "TTL"; e = { $_.TTL } }
+            # Return as a clean, trimmed string
+            $resultmx = ($formattedRecords | Out-String).TrimEnd("`r`n").Trim()
         }
-        ($Outmx | Out-String).TrimEnd("`r`n").Trim()
+        else {
+            # No MX records found
+            Write-Warning "No MX records found for domain: $Domain"
+            $resultmx = $false
+        }
+    }
+    catch {
+        # Handle errors during the query
+        Write-Error "An error occurred while resolving DNS: $_"
+        $resultmx = $false
     }
 
     # Hold the original selector value
@@ -306,10 +330,14 @@ function Get-MailRecords {
         }
     }
 
-    # If Sub is true, recursively call the function with the original parameters
-    If ($Sub -eq $true) {
-        Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $SelectorHold
+    if ($JustSub) {
+        return  $Output
     }
 
-    return $Output
+    $Output
+
+    # If Sub is true, recursively call the function with the original parameters
+    If ($Sub -eq $true -and ($Domain.Split('.').count -gt 2)) {
+        Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $SelectorHold
+    }
 }
