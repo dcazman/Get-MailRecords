@@ -27,11 +27,17 @@ The DNS server to query. The default is '8.8.8.8'.
 .EXAMPLE
 # Example 1: Get basic mail records for facebook.com
 Get-MailRecords -Domain facebook.com
+
+or
+
 GMR -domain facebook.com
 
 .EXAMPLE
 # Example 2: Get mail records including subdomains for facebook.com
 Get-MailRecords -Domain facebook.com -Sub
+
+or
+
 GMR -domain facebook.com -Sub
 
 .EXAMPLE
@@ -41,6 +47,9 @@ Get-MailRecords -Domain cnn.facebook.com -Sub -Selector face
 .EXAMPLE
 # Example 4: Get DKIM records for a subdomain with an automatically determined selector
 Get-MailRecords -Domain cnn.facebook.com -Selector unprovided
+
+or 
+
 GMR -domain https://cnn.facebook.com -Selector unprovided
 
 .EXAMPLE
