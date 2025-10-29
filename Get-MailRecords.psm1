@@ -1,92 +1,80 @@
 <#
 .SYNOPSIS
-A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC, and DKIM on a given domain name, email address, or URL.
-This function has an alias GMR.
+Performs DNS lookups (A, MX, NS, SPF, DMARC, DKIM) for a domain, email, or URL.
 
 .DESCRIPTION
-This function performs various checks on a given domain name, email address, or URL. It checks for the existence of DNS records A, MX, NS, SPF, DMARC, and DKIM.
-This function can check for record types TXT, CNAME, and BOTH for (SPF, DMARC, and DKIM).
-This function will attempt to find the DKIM record if the DKIM selector is not provided.
-This function has an alias GMR.
-Add this function to your PowerShell profile then run like the examples below.
+Checks for common mail-related DNS records on a given domain, email address, or URL.  
+Supports record types TXT, CNAME, or BOTH for SPF, DMARC, and DKIM.  
+If a DKIM selector is not provided, common selectors are tried automatically.  
+Alias: GMR. Add to your PowerShell profile for convenience.
 
 .PARAMETER Domain
-The full domain name, email address, or URL to retrieve. MANDATORY parameter.
+The full domain name, email address, or URL to query. Mandatory.
 
 .PARAMETER Sub
-Allow subdomain. If specified, subdomains will be included in the checks.
+Include subdomains in the checks.
 
 .PARAMETER JustSub
-A switch that will return only subdomain information.
+Return only subdomain information (exclude parent domain).
 
 .PARAMETER Selector
-The DKIM selector to use. If provided, DKIM records will be checked. If not provided, an attempt will be made to find the DKIM record. Default is unprovided.
+The DKIM selector to use. If not provided, common selectors are tried automatically.
 
 .PARAMETER RecordType
-The type of records to check for SPF, DMARC, and DKIM. Valid options are 'TXT', 'CNAME', and 'BOTH'. The default is 'TXT'.
+Record type(s) to query for SPF, DMARC, and DKIM.  
+Valid options: 'TXT', 'CNAME', 'BOTH'. Default: 'TXT'.
 
 .PARAMETER Server
-The DNS server to query. The default is '8.8.8.8'.
+DNS server to query. Default: 8.8.8.8.
 
 .EXAMPLE
-# Example 1: Get basic mail records for facebook.com
+# Get basic mail records for facebook.com
 Get-MailRecords -Domain facebook.com
-GMR -domain facebook.com
+GMR -Domain facebook.com
 
 .EXAMPLE
-# Example 2: Get mail records including subdomains for facebook.com
+# Include subdomains
 Get-MailRecords -Domain facebook.com -Sub
-GMR -domain facebook.com -Sub
 
 .EXAMPLE
-# Example 3: Get mail records for a subdomain with a specific DKIM selector
-Get-MailRecords -Domain cnn.facebook.com -Sub -Selector face
+# Get DKIM record with explicit selector
+Get-MailRecords -Domain cnn.facebook.com -Selector face
 
 .EXAMPLE
-# Example 4: Get DKIM records for a subdomain with an automatically determined selector
-Get-MailRecords -Domain cnn.facebook.com -Selector unprovided
-GMR -domain https://cnn.facebook.com -Selector unprovided
-
-.EXAMPLE
-# Example 5: Get mail records for a domain using a custom DNS server
+# Use a custom DNS server
 Get-MailRecords -Domain cnn.com -Server 1.1.1.1
 
 .EXAMPLE
-# Example 6: Get CNAME records for a domain
-Get-MailRecords -Domain cnn.com -RecordType cname
+# Get CNAME records for SPF/DMARC/DKIM
+Get-MailRecords -Domain cnn.com -RecordType CNAME
 
 .EXAMPLE
-# Example 7: Prompt for the domain name and retrieve mail records
-GMR (Domain prompt will occur)
-
-.EXAMPLE
-# Example 8: Specify the domain and retrieve mail records
-GMR -Domain https://cnn.com
+# Prompt for domain interactively
+GMR
 
 .LINK
 https://github.com/dcazman/Get-MailRecords
 
 .NOTES
-Author: Dan Casmas, 07/2023. Designed to work on Windows OS. Has only been tested with PowerShell versions 5.1 and 7. Requires a minimum of PowerShell 5.1.
-Parts of this code were written by Jordan W.
-
-.NOTES
-To add more selectors to search, modify the $DkimSelectors array. Just below param variables.
-
-.NOTES
-Only the first 2 Nameservers results are returned if possible.
+Author: Dan Casmas (07/2023)  
+Tested on Windows PowerShell 5.1 and PowerShell 7 (Windows only).  
+Minimum required version: 5.1.  
+Alias: GMR.  
+To add more DKIM selectors, edit $DkimSelectors near the top of the script.  
+Only the first two NS results are returned.  
+Portions of code adapted from Jordan W.
 #>
 function Get-MailRecords {
     [Alias("GMR")]
     [CmdletBinding()]
     param (
-        [parameter(Mandatory = $true, HelpMessage = "Enter the full domain name, email address, or URL.")]
+        [parameter(Mandatory = $true, HelpMessage = "Enter the full domain name, email address, or URL.", Position = 0)]
         [ValidateScript({
                 if ($_ -like "*.*") {
                     return $true
                 }
                 else {
-                    Throw [System.Management.Automation.ValidationMetadataException] "Enter the full domain name, email address, or URL."
+                    throw [System.Management.Automation.ValidationMetadataException] "Enter the full domain name, email address, or URL."
                     return $false
                 }
             })]
@@ -137,7 +125,7 @@ function Get-MailRecords {
     }
 
     # Remove '@' if present
-    if ([string]::IsNullOrWhiteSpace($TestDomain)) {
+    if ($TestDomain) {
         try {
             $TestDomain = $Domain.Replace('@', '').Trim()
         }
@@ -145,6 +133,10 @@ function Get-MailRecords {
             Write-Error "Problem with $Domain as entered. Please read the command help."
             return $null
         }
+    }
+    else {
+        Write-Error "Problem with $Domain as entered. Please read the command help."
+        return $null
     }
 
     # Extract the last two items in the array and join them with a dot
@@ -266,10 +258,10 @@ function Get-MailRecords {
 
         # Get DMARC record
         $DMARC = Resolve-DnsName -Name "_dmarc.$TestDomain" -Type $TempType -Server $Server -DnsOnly -ErrorAction SilentlyContinue
-        $resultdmarc = If ([string]::IsNullOrWhiteSpace($DMARC)) {
+        $resultdmarc = if ([string]::IsNullOrWhiteSpace($DMARC)) {
             $false
         }
-        Else {
+        else {
             ($DMARC.Strings -like "v=DMARC1*") -join ' '
         }
 
@@ -277,10 +269,10 @@ function Get-MailRecords {
         if ($Selector -ne 'unprovided') {
             # get DKIM record if exist
             $DKIM = Resolve-DnsName -Type $($TempType) -Name "$($Selector)._domainkey.$($TestDomain)" -Server $($Server) -DnsOnly -ErrorAction SilentlyContinue | Where-Object { $_.type -eq $($TempType) }
-            $resultdkim = If ([string]::IsNullOrWhiteSpace($DKIM)) { 
+            $resultdkim = if ([string]::IsNullOrWhiteSpace($DKIM)) { 
                 $false
             }
-            Else {
+            else {
                 foreach ($Item in $DKIM) {
                     if ($Item.type -eq $($TempType) -and $Item.Strings -match "v=DKIM1") {
                         [string]$Item.Strings
@@ -291,7 +283,7 @@ function Get-MailRecords {
         }
 
         # Look for DKIM if not provided
-        If ($Selector -eq 'unprovided') {
+        if ($Selector -eq 'unprovided') {
             # Break the loop if DKIM is found.
             $BreakFlag = $false
             foreach ($line in $DkimSelectors) {
@@ -304,7 +296,7 @@ function Get-MailRecords {
                     $BreakFlag = $true
                     break
                 }
-                If ($BreakFlag) {
+                if ($BreakFlag) {
                     break
                 }
             }
@@ -331,13 +323,13 @@ function Get-MailRecords {
     }
 
     if ($JustSub) {
-        return  $Output
+        return $Output
     }
 
     $Output
 
     # If Sub is true, recursively call the function with the original parameters
-    If ($Sub -eq $true -and ($Domain.Split('.').count -gt 2)) {
+    if ($Sub -eq $true -and ($Domain.Split('.').count -gt 2)) {
         Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $SelectorHold
     }
 }
