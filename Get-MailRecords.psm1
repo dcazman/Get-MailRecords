@@ -124,10 +124,11 @@ function Get-MailRecords {
         }
     }
 
-    # Remove '@' if present
+    # Final cleanup and validation
     if ($TestDomain) {
         try {
-            $TestDomain = $Domain.Replace('@', '').Trim()
+            # Only remove '@' from the parsed domain (rare edge cases)
+            $TestDomain = $TestDomain.Replace('@', '').Trim().ToLowerInvariant()
         }
         catch {
             Write-Error "Problem with $Domain as entered. Please read the command help."
