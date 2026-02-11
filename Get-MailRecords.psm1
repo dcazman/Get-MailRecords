@@ -53,16 +53,20 @@ Get-MailRecords -Domain cnn.com -RecordType CNAME
 Get-MailRecords -Domain mail.facebook.com -JustSub
 
 .EXAMPLE
-# Export results to CSV
-Get-MailRecords -Domain example.com -Export CSV -OutputPath "C:\Reports\mail_records.csv"
+# Export results to a specific CSV file
+Get-MailRecords -Domain example.com -Export results.csv
+
+.EXAMPLE
+# Export with auto-generated timestamped filename
+Get-MailRecords -Domain example.com -Export CSV
 
 .EXAMPLE
 # Check multiple domains via pipeline and export to JSON
-"google.com", "microsoft.com", "amazon.com" | Get-MailRecords -Export JSON
+"google.com", "microsoft.com", "amazon.com" | Get-MailRecords -Export output.json
 
 .EXAMPLE
 # Bulk check from CSV file and export results
-Import-Csv domains.csv | Get-MailRecords -Export CSV -OutputPath "results.csv"
+Import-Csv domains.csv | Get-MailRecords -Export results.csv
 
 .EXAMPLE
 # Prompt for domain interactively
@@ -116,25 +120,35 @@ function Get-MailRecords {
         [parameter(Mandatory = $false, HelpMessage = "Output is only sub domain Example: mail.facebook.com")]
         [switch]$JustSub,
 
-        [parameter(Mandatory = $false, HelpMessage = "Export results to file. Valid options: CSV, JSON")]
-        [ValidateSet('CSV', 'JSON', IgnoreCase = $true)]
-        [string]$Export,
-
-        [parameter(Mandatory = $false, HelpMessage = "Path for exported file. Default: .\MailRecords_<timestamp>.<ext>")]
-        [string]$OutputPath
+        [parameter(Mandatory = $false, HelpMessage = "Export results to file. Provide a filename (e.g., 'results.csv', 'output.json') or just the format ('CSV', 'JSON') for auto-generated timestamped filename.")]
+        [string]$Export
     )
 
     begin {
         # Initialize collection for export functionality
+        $ExportFormat = $null
+        $OutputPath = $null
+
         if ($Export) {
             $script:AllResults = @()
-        }
 
-        # Validate/create output path if exporting
-        if ($Export -and -not $OutputPath) {
-            $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-            $extension = $Export.ToLower()
-            $OutputPath = ".\MailRecords_$timestamp.$extension"
+            # Determine if Export is a filename or just a format
+            if ($Export -match '\.(csv|json)$') {
+                # It's a filename with extension
+                $OutputPath = $Export
+                $ExportFormat = ($Export -split '\.')[-1].ToUpper()
+            }
+            elseif ($Export -match '^(CSV|JSON)$') {
+                # It's just a format, generate timestamped filename
+                $ExportFormat = $Export.ToUpper()
+                $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+                $extension = $ExportFormat.ToLower()
+                $OutputPath = ".\MailRecords_$timestamp.$extension"
+            }
+            else {
+                Write-Error "Export parameter must be either a filename with .csv or .json extension, or 'CSV'/'JSON' for auto-generated filename."
+                return
+            }
         }
     }
 
@@ -479,9 +493,9 @@ function Get-MailRecords {
 
     end {
         # Export results if requested
-        if ($Export -and $script:AllResults.Count -gt 0) {
+        if ($ExportFormat -and $script:AllResults.Count -gt 0) {
             try {
-                switch ($Export) {
+                switch ($ExportFormat) {
                     'CSV' {
                         $script:AllResults | Export-Csv -Path $OutputPath -NoTypeInformation -Force
                         Write-Host "Results exported to: $OutputPath" -ForegroundColor Green
