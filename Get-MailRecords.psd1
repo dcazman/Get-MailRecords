@@ -19,7 +19,7 @@
     Author            = 'Dan Casmas'
 
     # Copyright statement for this module.
-    Copyright         = '(c) Dan Casmas. All rights reserved.'
+    Copyright         = '(c) 2023 Dan Casmas. Licensed under the GNU General Public License v3.0.'
 
     # Description of the functionality provided by this module.
     Description       = 'Performs DNS lookups for mail-related records (A, MX, NS, SPF, DMARC, DKIM) on a given domain, email address, or URL. Supports TXT, CNAME, and BOTH record types, DKIM auto-discovery, pipeline/bulk input, and CSV/JSON export.'
