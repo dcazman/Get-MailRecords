@@ -1,5 +1,8 @@
 # Get-MailRecords
 
+[![PSGallery Version](https://img.shields.io/powershellgallery/v/Get-MailRecords)](https://www.powershellgallery.com/packages/Get-MailRecords)
+[![PSGallery Downloads](https://img.shields.io/powershellgallery/dt/Get-MailRecords)](https://www.powershellgallery.com/packages/Get-MailRecords)
+
 Performs DNS lookups for mail-related records on a given domain, email address, or URL.
 Checks **A, MX, NS, SPF, DMARC, and DKIM** records. Supports bulk/pipeline input and CSV/JSON export.
 
