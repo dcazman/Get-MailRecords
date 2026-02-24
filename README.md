@@ -1,82 +1,161 @@
-.SYNOPSIS
-A PowerShell function that performs DNS queries A, MX, NS, SPF, DMARC, and DKIM on a given domain name, email address, or URL.
-This function has an alias GMR.
+# Get-MailRecords
 
-.DESCRIPTION
-This function performs various checks on a given domain name, email address, or URL. It checks for the existence of DNS records A, MX, NS, SPF, DMARC, and DKIM.
-This function can check for record types TXT, CNAME, and BOTH for (SPF, DMARC, and DKIM).
-This function will attempt to find the DKIM record if the DKIM selector is not provided.
-This function has an alias GMR.
-Add this function to your PowerShell profile then run like the examples below.
+Performs DNS lookups for mail-related records on a given domain, email address, or URL.
+Checks **A, MX, NS, SPF, DMARC, and DKIM** records. Supports bulk/pipeline input and CSV/JSON export.
 
-.PARAMETER Domain
-The full domain name, email address, or URL to retrieve. MANDATORY parameter.
+**Function alias:** `GMR` &nbsp;|&nbsp; **Repo:** https://github.com/dcazman/Get-MailRecords
 
-.PARAMETER Sub
-Allow subdomain. If specified, subdomains will be included in the checks.
+---
 
-.PARAMETER Selector
-The DKIM selector to use. If provided, DKIM records will be checked. If not provided, an attempt will be made to find the DKIM record. Default is unprovided.
+## Table of Contents
 
-.PARAMETER RecordType
-The type of records to check for SPF, DMARC, and DKIM. Valid options are 'TXT', 'CNAME', and 'BOTH'. The default is 'TXT'.
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Parameters](#parameters)
+- [Examples](#examples)
+- [Output](#output)
+- [Notes](#notes)
 
-.PARAMETER Server
-The DNS server to query. The default is '8.8.8.8'.
+---
 
-.EXAMPLE
-# Example 1: Get basic mail records for facebook.com
+## Requirements
+
+| Environment   | Requirement |
+| :------------ | :---------- |
+| Windows       | PowerShell 5.1+ — uses built-in `Resolve-DnsName` |
+| Linux / macOS | PowerShell 7+ with `dig` installed (`bind-utils` on RHEL/CentOS, `dnsutils` on Debian/Ubuntu) |
+
+## Installation
+
+Copy `Get-MailRecords.psm1` to a folder in your `$PSModulePath`, then import it:
+
+```powershell
+Import-Module Get-MailRecords
+```
+
+Or dot-source it directly for one-off use:
+
+```powershell
+. .\Get-MailRecords.psm1
+```
+
+## Parameters
+
+| Parameter     | Alias  | Type   | Description |
+| :------------ | :----- | :----- | :---------- |
+| `-Domain`     | `-d`   | String | Full domain name, email address, or URL. **Mandatory.** Accepts pipeline input. |
+| `-Sub`        | `-s`   | Switch | Query the subdomain **and** the base domain. `mail.facebook.com` returns results for both `mail.facebook.com` and `facebook.com`. |
+| `-JustSub`    | `-js`  | Switch | Query only the subdomain — skips the base domain. `mail.facebook.com` returns results for `mail.facebook.com` only. |
+| `-Selector`   | `-sel` | String | DKIM selector. If omitted, common selectors are tried automatically. |
+| `-RecordType` | `-r`   | String | Record type for SPF, DMARC, and DKIM lookups. Valid: `TXT` (default), `CNAME`, `BOTH`. |
+| `-Server`     | `-srv` | String | DNS server to query. Default: `8.8.8.8`. |
+| `-Export`     | `-e`   | String | Export results to file. Provide a filename (`results.csv`, `output.json`) or just the format (`CSV`, `JSON`) for an auto-generated timestamped filename. |
+
+## Examples
+
+#### Basic lookup
+
+```powershell
 Get-MailRecords -Domain facebook.com
+GMR -d facebook.com
+```
 
-or
+#### Query subdomain and base domain together
 
-GMR -domain facebook.com
+```powershell
+Get-MailRecords -Domain mail.facebook.com -Sub
+GMR -d mail.facebook.com -s
+```
 
-.EXAMPLE
-# Example 2: Get mail records including subdomains for facebook.com
-Get-MailRecords -Domain facebook.com -Sub
+#### Query only the subdomain
 
-or
+```powershell
+Get-MailRecords -Domain mail.facebook.com -JustSub
+GMR -d mail.facebook.com -js
+```
 
-GMR -domain facebook.com -Sub
+#### Provide a DKIM selector explicitly
 
-.EXAMPLE
-# Example 3: Get mail records for a subdomain with a specific DKIM selector
-Get-MailRecords -Domain cnn.facebook.com -Sub -Selector face
+```powershell
+Get-MailRecords -Domain facebook.com -Selector selector1
+GMR -d facebook.com -sel selector1
+```
 
-.EXAMPLE
-# Example 4: Get DKIM records for a subdomain with an automatically determined selector
-Get-MailRecords -Domain cnn.facebook.com -Selector unprovided
+#### Query CNAME records for SPF / DMARC / DKIM
 
-or 
+```powershell
+Get-MailRecords -Domain facebook.com -RecordType CNAME
+GMR -d facebook.com -r CNAME
+```
 
-GMR -domain https://cnn.facebook.com -Selector unprovided
+#### Query both TXT and CNAME record types
 
-.EXAMPLE
-# Example 5: Get mail records for a domain using a custom DNS server
+```powershell
+Get-MailRecords -Domain facebook.com -RecordType BOTH
+GMR -d facebook.com -r BOTH
+```
+
+#### Use a custom DNS server
+
+```powershell
 Get-MailRecords -Domain cnn.com -Server 1.1.1.1
+GMR -d cnn.com -srv 1.1.1.1
+```
 
-.EXAMPLE
-# Example 6: Get CNAME records for a domain
-Get-MailRecords -Domain cnn.com -RecordType cname
+#### Export to a specific CSV file
 
-.EXAMPLE
-# Example 7: Prompt for the domain name and retrieve mail records
-GMR (Domain prompt will occur)
+```powershell
+Get-MailRecords -Domain example.com -Export results.csv
+GMR -d example.com -e results.csv
+```
 
-.EXAMPLE
-# Example 8: Specify the domain and retrieve mail records
-GMR -Domain https://cnn.com
+#### Export with an auto-generated timestamped filename
 
-.LINK
-https://github.com/dcazman/Get-MailRecords
+```powershell
+Get-MailRecords -Domain example.com -Export JSON
+GMR -d example.com -e JSON
+# Saves as: MailRecords_20240101_1430.json
+```
 
-.NOTES
-Author: Dan Casmas, 07/2023. Designed to work on Windows OS. Has only been tested with PowerShell versions 5.1 and 7. Requires a minimum of PowerShell 5.1.
-Parts of this code were written by Jordan W.
+#### Pipeline — check multiple domains
 
-.NOTES
-To add more selectors to search, modify the $DkimSelectors array. Just below param variables.
+```powershell
+"google.com", "microsoft.com", "amazon.com" | Get-MailRecords -Export output.json
+```
 
-.NOTES
-Only the first 2 Nameservers results are returned if possible.
+#### Pipeline — bulk check from a CSV file
+
+```powershell
+# CSV must have a column named 'Domain'
+Import-Csv domains.csv | Get-MailRecords -Export results.csv
+```
+
+## Output
+
+Results are returned as `PSCustomObject` with the following properties:
+
+| Property              | Description |
+| :-------------------- | :---------- |
+| `A`                   | `True` if an A record exists, `False` otherwise |
+| `MX`                  | MX records (Name, Preference, TTL) |
+| `SPF_TXT` / `SPF_CNAME`   | SPF record value, or `False` if not found |
+| `DMARC_TXT` / `DMARC_CNAME` | DMARC record value, or `False` if not found |
+| `DKIM_TXT` / `DKIM_CNAME`  | DKIM record value, or `False` if not found |
+| `SELECTOR`            | The DKIM selector that matched, or the selector provided |
+| `DOMAIN`              | The domain that was queried |
+| `RECORDTYPE`          | The record type queried (`TXT` or `CNAME`) |
+| `SERVER`              | The DNS server used |
+| `NS_First2`           | First two NS records |
+
+## Notes
+
+- **DKIM auto-discovery** — If `-Selector` is not provided, a built-in list of common selectors is tried automatically. To extend the list, edit `$DkimSelectors` near the top of the script.
+- **Multi-part TLDs** — Domains like `.co.uk` or `.com.au` are handled for common cases. For complex TLDs, use `-Sub` or `-JustSub` to prevent the domain from being stripped incorrectly.
+- **CNAME chaining** — When using `-RecordType CNAME` or `BOTH`, the function follows the CNAME chain to retrieve the final TXT record value.
+- **NS records** — Only the first two NS results are returned.
+- **Pipeline / bulk input** — Accepts `ValueFromPipeline` and `ValueFromPipelineByPropertyName`. When piping from a CSV, the column must be named `Domain`.
+- **Export** — When a format only (`CSV`/`JSON`) is provided, the file is saved to the current directory as `MailRecords_<timestamp>.<ext>`.
+
+---
+
+*Author: Dan Casmas — 07/2023. Tested on Windows PowerShell 5.1 and PowerShell 7 (Windows, Linux, macOS). Portions of code adapted from Jordan W.*
