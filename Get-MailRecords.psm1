@@ -400,27 +400,25 @@ function Get-MailRecords {
             # Query the DNS server for MX records
             $mxRecords = Invoke-DnsQuery -Name $TestDomain -Type 'MX' -Server $Server |
             Sort-Object -Property Preference
-
-            # Validate if MX records exist
-            if ($mxRecords -and $mxRecords.Type -contains 'MX') {
-                # Format and return the MX records
-                $formattedRecords = $mxRecords |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_.NameExchange) } |
-                Select-Object @{n = "Name"; e = { $_.NameExchange } },
-                @{n = "Preference"; e = { $_.Preference } },
-                @{n = "TTL"; e = { $_.TTL } }
-                # Return as a clean, trimmed string
-                $resultmx = ($formattedRecords | Out-String).TrimEnd("`r`n").Trim()
-            }
-            else {
-                # No MX records found
-                Write-Warning "No MX records found for domain: $Domain"
-                $resultmx = $false
-            }
         }
         catch {
             # Handle errors during the query
             Write-Error "An error occurred while resolving DNS: $_"
+            $mxRecords = $null
+        }
+
+        # Validate and format MX results outside the try/catch so that
+        # Write-Warning is not silently swallowed when -WarningAction Stop is used.
+        if ($mxRecords -and $mxRecords.Type -contains 'MX') {
+            $formattedRecords = $mxRecords |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_.NameExchange) } |
+            Select-Object @{n = "Name"; e = { $_.NameExchange } },
+            @{n = "Preference"; e = { $_.Preference } },
+            @{n = "TTL"; e = { $_.TTL } }
+            $resultmx = ($formattedRecords | Out-String).TrimEnd("`r`n").Trim()
+        }
+        else {
+            Write-Warning "No MX records found for domain: $Domain"
             $resultmx = $false
         }
 
@@ -440,7 +438,7 @@ function Get-MailRecords {
             # Get DMARC record
             $DMARC = Invoke-DnsQuery -Name "_dmarc.$TestDomain" -Type $TempType -Server $Server
 
-            if ([string]::IsNullOrWhiteSpace($DMARC)) {
+            if (-not $DMARC) {
                 $resultdmarc = $false
             }
             else {
@@ -475,7 +473,7 @@ function Get-MailRecords {
                 $DKIM = Invoke-DnsQuery -Name "$($Selector)._domainkey.$($TestDomain)" -Type $TempType -Server $Server |
                 Where-Object { $_.Type -eq $TempType }
 
-                if ([string]::IsNullOrWhiteSpace($DKIM)) {
+                if (-not $DKIM) {
                     $resultdkim = $false
                 }
                 else {
@@ -580,14 +578,25 @@ function Get-MailRecords {
                 $Output
             }
 
-            # If Sub is true, recursively call the function with the original parameters
-            if ($Sub -eq $true -and ($Domain.Split('.').count -gt 2)) {
-                $subOutput = Get-MailRecords -Domain $Domain -Server $Server -RecordType $RecordType -Selector $SelectorHold
-                if ($Export) {
-                    $script:AllResults += $subOutput
+            # If Sub is true, also query the base/parent domain
+            if ($Sub -eq $true -and ($TestDomain.Split('.').count -gt 2)) {
+                # Derive the parent domain explicitly from the already-parsed domain
+                $tParts = $TestDomain.Split('.')
+                $parentDomain = if ($tParts.Count -gt 2 -and $tParts[-2].Length -eq 2 -and $tParts[-1].Length -le 3) {
+                    $tParts[-3..-1] -join '.'
                 }
                 else {
-                    $subOutput
+                    $tParts[-2, -1] -join '.'
+                }
+                # Skip if stripping produced the same domain (e.g. multi-part TLDs like .co.uk)
+                if ($parentDomain -ne $TestDomain) {
+                    $subOutput = Get-MailRecords -Domain $parentDomain -Server $Server -RecordType $RecordType -Selector $SelectorHold
+                    if ($Export) {
+                        $script:AllResults += $subOutput
+                    }
+                    else {
+                        $subOutput
+                    }
                 }
             }
         }
