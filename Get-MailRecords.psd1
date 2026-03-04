@@ -10,7 +10,7 @@
     RootModule        = 'Get-MailRecords.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '1.0.1'
+    ModuleVersion     = '1.1.0'
 
     # Unique identifier for this module.
     GUID              = '86bd1cc5-e00e-49bb-a5b8-f119ff619878'
@@ -56,7 +56,7 @@
             ProjectUri   = 'https://github.com/dcazman/Get-MailRecords'
 
             # Release notes for this version of the module.
-            ReleaseNotes = 'Initial release. Supports A, MX, NS, SPF, DMARC, and DKIM lookups. Cross-platform: Windows (Resolve-DnsName) and Linux/macOS (dig). DKIM selector auto-discovery, subdomain handling, pipeline input, and CSV/JSON export.'
+            ReleaseNotes = 'v1.1.0: Added -DkimSelectors parameter (alias -dkim) to allow runtime override of the DKIM auto-discovery selector list without editing the script. Improved parameter ordering (Sub/JustSub grouped, Selector/DkimSelectors grouped). Fixed misleading HelpMessages and comment-based help. Removed duplicate example. All aliases documented in Description and Notes.'
 
         }
     }
