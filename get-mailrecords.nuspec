@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>get-mailrecords</id>
+    <version>1.1.0</version>
+    <title>Get-MailRecords</title>
+    <authors>Dan Casmas</authors>
+    <owners>dcazman</owners>
+    <copyright>Copyright 2023 Dan Casmas</copyright>
+    <projectUrl>https://github.com/dcazman/Get-MailRecords</projectUrl>
+    <licenseUrl>https://github.com/dcazman/Get-MailRecords/blob/main/LICENSE</licenseUrl>
+    <projectSourceUrl>https://github.com/dcazman/Get-MailRecords</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/dcazman/Get-MailRecords/issues</bugTrackerUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Performs DNS lookups for mail-related records (A, MX, NS, SPF, DMARC, DKIM) on a given domain, email address, or URL. Supports TXT, CNAME, and BOTH record types, DKIM auto-discovery, pipeline/bulk input, and CSV/JSON export.
+
+**Function alias:** GMR
+
+## Requirements
+- Windows: PowerShell 5.1+
+- Linux/macOS: PowerShell 7+ with `dig` installed
+
+## Quick Start
+```powershell
+Install-Module Get-MailRecords
+Get-MailRecords -Domain example.com
+GMR -d example.com
+```
+    </description>
+    <summary>Performs DNS lookups for mail-related records (A, MX, NS, SPF, DMARC, DKIM) on a given domain, email address, or URL.</summary>
+    <releaseNotes>v1.1.0: Added -DkimSelectors parameter (alias -dkim) to allow runtime override of the DKIM auto-discovery selector list without editing the script. Improved parameter ordering (Sub/JustSub grouped, Selector/DkimSelectors grouped). Fixed misleading HelpMessages and comment-based help. Removed duplicate example. All aliases documented in Description and Notes.</releaseNotes>
+    <tags>powershell dns mail spf dmarc dkim mx email DomainHealth EmailSecurity Networking CrossPlatform</tags>
+    <dependencies>
+      <dependency id="powershell" version="5.1" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
