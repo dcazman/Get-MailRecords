@@ -1,9 +1,9 @@
 name: Publish to PowerShell Gallery
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -22,13 +22,6 @@ jobs:
           echo "MODULE_NAME=$moduleName" >> $env:GITHUB_OUTPUT
           echo "CURRENT_VERSION=$currentVersion" >> $env:GITHUB_OUTPUT
           Write-Host "Module: $moduleName v$currentVersion"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to PSGallery
         shell: pwsh
