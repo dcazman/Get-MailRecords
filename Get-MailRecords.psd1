@@ -10,7 +10,7 @@
     RootModule        = 'Get-MailRecords.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '1.1.0'
+    ModuleVersion     = '1.1.1'
 
     # Unique identifier for this module.
     GUID              = '86bd1cc5-e00e-49bb-a5b8-f119ff619878'
