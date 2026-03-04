@@ -3,31 +3,12 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag/version to release (e.g. v1.2.3) — required for manual runs'
-        required: true
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve tag
-        id: tag
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $tag = "${{ github.event.inputs.tag }}"
-          } else {
-            $tag = $env:GITHUB_REF -replace '^refs/tags/', ''
-          }
-          echo "TAG=$tag" >> $env:GITHUB_OUTPUT
-          Write-Host "Resolved tag: $tag"
 
       - name: Get module name and version
         id: module_info
@@ -44,7 +25,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.TAG }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
