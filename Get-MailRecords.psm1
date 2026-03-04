@@ -427,6 +427,9 @@ function Get-MailRecords {
             $resultmx = $false
         }
 
+        # Track whether -dkim selectors were explicitly supplied by the caller
+        $DkimExplicit = $PSBoundParameters.ContainsKey('DkimSelectors')
+
         # Hold the original selector value
         $SelectorHold = $Selector
 
@@ -550,7 +553,7 @@ function Get-MailRecords {
 
             # Reset selector if DKIM not found
             if ($resultdkim -eq $false) {
-                $Selector = $SelectorHold
+                $Selector = if ($DkimExplicit) { $DkimSelectors -join ', ' } else { $SelectorHold }
             }
 
             [PSCustomObject]@{
