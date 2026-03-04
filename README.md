@@ -44,15 +44,16 @@ Or dot-source it directly for one-off use:
 
 ## Parameters
 
-| Parameter     | Alias  | Type   | Description |
-| :------------ | :----- | :----- | :---------- |
-| `-Domain`     | `-d`   | String | Full domain name, email address, or URL. **Mandatory.** Accepts pipeline input. |
-| `-Sub`        | `-s`   | Switch | Query the subdomain **and** the base domain. `mail.facebook.com` returns results for both `mail.facebook.com` and `facebook.com`. |
-| `-JustSub`    | `-js`  | Switch | Query only the subdomain — skips the base domain. `mail.facebook.com` returns results for `mail.facebook.com` only. |
-| `-Selector`   | `-sel` | String | DKIM selector. If omitted, common selectors are tried automatically. |
-| `-RecordType` | `-r`   | String | Record type for SPF, DMARC, and DKIM lookups. Valid: `TXT` (default), `CNAME`, `BOTH`. |
-| `-Server`     | `-srv` | String | DNS server to query. Default: `8.8.8.8`. |
-| `-Export`     | `-e`   | String | Export results to file. Provide a filename (`results.csv`, `output.json`) or just the format (`CSV`, `JSON`) for an auto-generated timestamped filename. |
+| Parameter        | Alias   | Type     | Description |
+| :--------------- | :------ | :------- | :---------- |
+| `-Domain`        | `-d`    | String   | Full domain name, email address, or URL. **Mandatory.** Accepts pipeline input. |
+| `-Sub`           | `-s`    | Switch   | Query the subdomain **and** the base domain. `mail.facebook.com` returns results for both `mail.facebook.com` and `facebook.com`. |
+| `-JustSub`       | `-js`   | Switch   | Query only the subdomain — skips the base domain. `mail.facebook.com` returns results for `mail.facebook.com` only. |
+| `-Selector`      | `-sel`  | String   | Explicit DKIM selector to query. If omitted, selectors in `-DkimSelectors` are tried automatically. |
+| `-DkimSelectors` | `-dkim` | String[] | List of DKIM selectors to try when no `-Selector` is given. Defaults to a built-in common set. Pass your own to override or extend. |
+| `-RecordType`    | `-r`    | String   | Record type to query for SPF, DMARC, and DKIM. Valid: `TXT` (default), `CNAME`, `BOTH`. |
+| `-Server`        | `-srv`  | String   | DNS server to query. Default: `8.8.8.8`. |
+| `-Export`        | `-e`    | String   | Export results to file. Provide a filename (`results.csv`, `output.json`) or just the format (`CSV`, `JSON`) for an auto-generated timestamped filename. |
 
 ## Examples
 
@@ -82,6 +83,13 @@ GMR -d mail.facebook.com -js
 ```powershell
 Get-MailRecords -Domain facebook.com -Selector selector1
 GMR -d facebook.com -sel selector1
+```
+
+#### Override the DKIM selector auto-discovery list
+
+```powershell
+Get-MailRecords -Domain example.com -DkimSelectors @('acmecorp', 'mail2024')
+GMR -d example.com -dkim @('acmecorp', 'mail2024')
 ```
 
 #### Query CNAME records for SPF / DMARC / DKIM
@@ -152,7 +160,7 @@ Results are returned as `PSCustomObject` with the following properties:
 
 ## Notes
 
-- **DKIM auto-discovery** — If `-Selector` is not provided, a built-in list of common selectors is tried automatically. To extend the list, edit `$DkimSelectors` near the top of the script.
+- **DKIM auto-discovery** — If `-Selector` is not provided, selectors in `-DkimSelectors` are tried automatically. Pass `-DkimSelectors @('mysel','selector1')` (alias `-dkim`) to override the default list at runtime — no script editing required.
 - **Multi-part TLDs** — Domains like `.co.uk` or `.com.au` are handled for common cases. For complex TLDs, use `-Sub` or `-JustSub` to prevent the domain from being stripped incorrectly.
 - **CNAME chaining** — When using `-RecordType CNAME` or `BOTH`, the function follows the CNAME chain to retrieve the final TXT record value.
 - **NS records** — Only the first two NS results are returned.
