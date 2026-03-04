@@ -6,7 +6,7 @@ Performs DNS lookups (A, MX, NS, SPF, DMARC, DKIM) for a domain, email, or URL.
 Checks for common mail-related DNS records on a given domain, email address, or URL.
 Supports record types TXT, CNAME, or BOTH for SPF, DMARC, and DKIM.
 If a DKIM selector is not provided, common selectors are tried automatically.
-Function alias: GMR. Parameter aliases: -d (Domain), -s (Sub), -js (JustSub), -sel (Selector), -r (RecordType), -srv (Server), -e (Export).
+Function alias: GMR. Parameter aliases: -d (Domain), -s (Sub), -js (JustSub), -sel (Selector), -dkim (DkimSelectors), -r (RecordType), -srv (Server), -e (Export).
 
 .PARAMETER Domain
 The full domain name, email address, or URL to query. Mandatory. Alias: -d
@@ -18,11 +18,13 @@ Query both the subdomain and the base domain. For example, mail.facebook.com wil
 Query only the subdomain — skips the base domain lookup. For example, mail.facebook.com returns results for mail.facebook.com only. Alias: -js
 
 .PARAMETER Selector
-The DKIM selector to use. If not provided, common selectors are tried automatically. Alias: -sel
+Explicit DKIM selector to query. If not provided, selectors in -DkimSelectors are tried automatically. Alias: -sel
+
+.PARAMETER DkimSelectors
+List of DKIM selectors to try when no -Selector is given. Defaults to a common set. Override to test custom selectors: -DkimSelectors @('mysel','selector1'). Alias: -dkim
 
 .PARAMETER RecordType
-Record type(s) to query for SPF, DMARC, and DKIM.
-Valid options: 'TXT', 'CNAME', 'BOTH'. Default: 'TXT'. Alias: -r
+Record type to query for SPF, DMARC, and DKIM. Valid options: 'TXT', 'CNAME', 'BOTH'. Default: 'TXT'. Alias: -r
 
 .PARAMETER Server
 DNS server to query. Default: 8.8.8.8. Alias: -srv
@@ -62,9 +64,9 @@ Get-MailRecords -Domain cnn.com -RecordType CNAME
 GMR -d cnn.com -r CNAME
 
 .EXAMPLE
-# Get only subdomain records (exclude parent domain)
-Get-MailRecords -Domain mail.facebook.com -JustSub
-GMR -d mail.facebook.com -js
+# Override the default DKIM selector list with custom selectors
+Get-MailRecords -Domain example.com -DkimSelectors @('acmecorp', 'mail2024')
+GMR -d example.com -dkim @('acmecorp', 'mail2024')
 
 .EXAMPLE
 # Export results to a specific CSV file
@@ -97,8 +99,8 @@ Tested on Windows PowerShell 5.1 and PowerShell 7 (Windows, Linux, macOS).
 Minimum required version: 5.1.
 Requires Resolve-DnsName (Windows built-in) or dig (Linux/macOS: install bind-utils or dnsutils).
 Function alias: GMR.
-Parameter aliases: -d (Domain), -s (Sub), -js (JustSub), -sel (Selector), -r (RecordType), -srv (Server), -e (Export).
-To add more DKIM selectors, edit $DkimSelectors near the top of the script.
+Parameter aliases: -d (Domain), -s (Sub), -js (JustSub), -sel (Selector), -dkim (DkimSelectors), -r (RecordType), -srv (Server), -e (Export).
+To override DKIM auto-discovery selectors, use -DkimSelectors @('sel1','sel2') or alias -dkim.
 Only the first two NS results are returned.
 CNAME record types will follow the CNAME chain to retrieve the final TXT record value.
 Note: Multi-part TLDs (e.g., .co.uk, .com.au) are handled for common cases, but use -Sub for complex domains.
@@ -124,25 +126,33 @@ function Get-MailRecords {
         [alias ('s')]
         [switch]$Sub,
 
-        [parameter(Mandatory = $false, HelpMessage = "DKIM selector. DKIM won't be checked without this string.")]
+        [parameter(Mandatory = $false, HelpMessage = "Query only the subdomain, skip the base domain. Example: mail.facebook.com returns results for mail.facebook.com only.")]
+        [alias ('js')]
+        [switch]$JustSub,
+
+        [parameter(Mandatory = $false, HelpMessage = "Explicit DKIM selector to query. If not provided, selectors in -DkimSelectors are tried automatically.")]
         [ValidateNotNullOrEmpty()]
         [alias ('sel')]
         [string]$Selector = 'unprovided',
 
-        [parameter(Mandatory = $false, HelpMessage = "Looks for record type TXT or CNAME or BOTH for SPF, DMARC, and DKIM if -Selector is used. The default record type is TXT.")]
+        [parameter(Mandatory = $false, HelpMessage = "DKIM selectors to try when no -Selector is specified. Defaults to a common list. Add your own: -DkimSelectors @('mysel','selector1').")]
+        [alias ('dkim')]
+        [string[]]$DkimSelectors = @(
+            "default", "s", "s1", "s2", "selector1", "selector2", "pps1", "google",
+            "everlytickey1", "everlytickey2", "eversrv", "k1", "mxvault", "dkim",
+            "mail", "s1024", "s2048", "s4096"
+        ),
+
+        [parameter(Mandatory = $false, HelpMessage = "Record type to query for SPF, DMARC, and DKIM. Valid options: TXT, CNAME, BOTH. Default: TXT.")]
         [ValidateSet('TXT', 'CNAME', 'BOTH')]
         [ValidateNotNullOrEmpty()]
         [alias ('r')]
         [string]$RecordType = 'TXT',
 
-        [parameter(Mandatory = $false, HelpMessage = "Server to query. The default is 8.8.8.8")]
+        [parameter(Mandatory = $false, HelpMessage = "DNS server to query. Default: 8.8.8.8.")]
         [ValidateNotNullOrEmpty()]
         [alias ('srv')]
         [string]$Server = '8.8.8.8',
-
-        [parameter(Mandatory = $false, HelpMessage = "Query only the subdomain, skip the base domain. Example: mail.facebook.com returns results for mail.facebook.com only.")]
-        [alias ('js')]
-        [switch]$JustSub,
 
         [parameter(Mandatory = $false, HelpMessage = "Export results to file. Provide a filename (e.g., 'results.csv', 'output.json') or just the format ('CSV', 'JSON') for auto-generated timestamped filename.")]
         [alias ('e')]
@@ -195,11 +205,6 @@ function Get-MailRecords {
         if ($script:DnsMethod -eq 'none') {
             return $null
         }
-
-        # Initialize DKIM selectors
-        $DkimSelectors = @(
-            "default", "s", "s1", "s2", "selector1", "selector2", "pps1", "google", "everlytickey1", "everlytickey2", "eversrv", "k1", "mxvault", "dkim", "mail", "s1024", "s2048", "s4096"
-        )
 
         # Cross-platform DNS query wrapper.
         # Uses Resolve-DnsName on Windows; falls back to dig on Linux/macOS.
