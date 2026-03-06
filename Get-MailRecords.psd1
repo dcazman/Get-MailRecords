@@ -49,6 +49,8 @@
                 'DomainHealth', 'EmailSecurity', 'Networking', 'CrossPlatform'
             )
 
+            Unlisted = $true
+
             # URL to the license for this module.
             LicenseUri   = 'https://github.com/dcazman/Get-MailRecords/blob/main/LICENSE'
 
