@@ -31,7 +31,7 @@ GMR -d example.com
     <releaseNotes>v1.1.0: Added -DkimSelectors parameter (alias -dkim) to allow runtime override of the DKIM auto-discovery selector list without editing the script. Improved parameter ordering (Sub/JustSub grouped, Selector/DkimSelectors grouped). Fixed misleading HelpMessages and comment-based help. Removed duplicate example. All aliases documented in Description and Notes.</releaseNotes>
     <tags>powershell dns mail spf dmarc dkim mx email DomainHealth EmailSecurity Networking CrossPlatform</tags>
     <dependencies>
-      <dependency id="powershell" version="5.1" />
+      <dependency id="powershell" version="7.0.0" />
     </dependencies>
   </metadata>
   <files>
