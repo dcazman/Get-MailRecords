@@ -51,23 +51,29 @@ jobs:
         id: dns
         shell: pwsh
         run: |
-          # Load the function
-          . ./Get-MailRecords.ps1
+          # Load the module
+          Import-Module ./Get-MailRecords.psm1 -Force
 
-          # Build parameters
+          # Build GMR command arguments
+          $domain     = '${{ github.event.inputs.domain }}'
+          $server     = '${{ github.event.inputs.server }}'
+          $recordType = '${{ github.event.inputs.record_type }}'
+          $selector   = '${{ github.event.inputs.selector }}'
+
+          # Echo the command being run for transparency
+          $cmd = "GMR -d `"$domain`" -srv `"$server`" -r `"$recordType`""
+          if ($selector -ne '') { $cmd += " -sel `"$selector`"" }
+          Write-Host "Running: $cmd"
+
+          # Execute GMR with splatted params
           $params = @{
-            Domain     = '${{ github.event.inputs.domain }}'
-            Server     = '${{ github.event.inputs.server }}'
-            RecordType = '${{ github.event.inputs.record_type }}'
+            Domain     = $domain
+            Server     = $server
+            RecordType = $recordType
           }
+          if ($selector -ne '') { $params['Selector'] = $selector }
 
-          $selector = '${{ github.event.inputs.selector }}'
-          if ($selector -ne '') {
-            $params['Selector'] = $selector
-          }
-
-          # Run and capture results
-          $results = Get-MailRecords @params
+          $results = GMR @params
 
           # Echo to Actions log
           $results | Format-List | Out-String | Write-Host
