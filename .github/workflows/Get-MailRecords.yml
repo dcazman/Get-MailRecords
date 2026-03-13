@@ -79,6 +79,12 @@ jobs:
           $results | Format-List | Out-String | Write-Host
 
           # Save as JSON for the report step
+          # Normalize A record boolean to string before JSON serialization
+          $results = $results | ForEach-Object {
+            $_.A = if ($_.A -eq $true) { 'True' } else { 'False' }
+            $_
+          }
+
           $results | ConvertTo-Json -Depth 10 | Out-File -FilePath results.json -Encoding utf8
           Write-Host "DNS lookup complete."
 
@@ -92,18 +98,19 @@ jobs:
           # Build one HTML card per result object (BOTH mode returns two)
           $cards = ""
           foreach ($r in @($json)) {
-            $badge = { param($val, $label)
-              $color = if ($val -and $val -ne 'False' -and $val -ne $false) { '#2ea043' } else { '#da3633' }
-              $text  = if ($val -and $val -ne 'False' -and $val -ne $false) { 'FOUND' } else { 'NOT FOUND' }
-              "<span class='badge' style='background:$color'>$text</span>"
-            }
-
             function Row($label, $value) {
-              $found = $value -and $value -ne 'False' -and $value -ne $false
+              # Handle booleans, "True"/"False" strings, and $false/$null
+              $found = ($value -ne $null) -and
+                       ($value -ne $false) -and
+                       ($value -ne 'False') -and
+                       ($value -ne '') -and
+                       ($value -ne 'unprovided')
               $color = if ($found) { '#2ea043' } else { '#da3633' }
               $badge = if ($found) { "<span class='badge' style='background:$color'>FOUND</span>" } `
                        else        { "<span class='badge' style='background:$color'>NOT FOUND</span>" }
-              $display = if ($found) { "<code>$([System.Web.HttpUtility]::HtmlEncode($value))</code>" } else { "<em style='color:#8b949e'>—</em>" }
+              # For A record showing True/False, show as True/False not as a code block
+              $displayVal = if ($value -eq 'True' -or $value -eq 'False') { $value } else { $value }
+              $display = if ($found) { "<code>$([System.Web.HttpUtility]::HtmlEncode($displayVal))</code>" } else { "<em style='color:#8b949e'>—</em>" }
               return "<tr><td class='label'>$label</td><td>$badge</td><td class='val'>$display</td></tr>"
             }
 
@@ -201,7 +208,6 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
