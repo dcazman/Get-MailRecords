@@ -26,6 +26,21 @@ on:
           - CNAME
           - BOTH
         default: TXT
+      sub:
+        description: "Query subdomain AND base domain (e.g. mail.example.com + example.com)"
+        required: false
+        type: boolean
+        default: false
+      just_sub:
+        description: "Query subdomain ONLY — skip base domain lookup"
+        required: false
+        type: boolean
+        default: false
+      export:
+        description: "Export results to a downloadable CSV artifact"
+        required: false
+        type: boolean
+        default: false
 
 # Required for GitHub Pages deployment
 permissions:
@@ -61,10 +76,15 @@ jobs:
           $server     = '${{ github.event.inputs.server }}'
           $recordType = '${{ github.event.inputs.record_type }}'
           $selector   = '${{ github.event.inputs.selector }}'
+          $sub        = '${{ github.event.inputs.sub }}' -eq 'true'
+          $justSub    = '${{ github.event.inputs.just_sub }}' -eq 'true'
+          $export     = '${{ github.event.inputs.export }}' -eq 'true'
 
           # Echo the command being run for transparency
           $cmd = "GMR -d `"$domain`" -srv `"$server`" -r `"$recordType`""
           if ($selector -ne '') { $cmd += " -sel `"$selector`"" }
+          if ($sub)     { $cmd += " -s" }
+          if ($justSub) { $cmd += " -js" }
           Write-Host "Running: $cmd"
 
           # Execute GMR with splatted params
@@ -74,6 +94,8 @@ jobs:
             RecordType = $recordType
           }
           if ($selector -ne '') { $params['Selector'] = $selector }
+          if ($sub)     { $params['Sub'] = $true }
+          if ($justSub) { $params['JustSub'] = $true }
 
           $results = GMR @params
 
@@ -197,6 +219,27 @@ jobs:
           New-Item -ItemType Directory -Force -Path ./public | Out-Null
           $html | Out-File -FilePath ./public/index.html -Encoding utf8
           Write-Host "HTML report generated."
+
+      - name: Export CSV artifact
+        if: ${{ github.event.inputs.export == 'true' }}
+        shell: pwsh
+        run: |
+          $json      = Get-Content results.json -Raw | ConvertFrom-Json
+          $domain    = '${{ github.event.inputs.domain }}' -replace '[^a-zA-Z0-9._-]', '_'
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmm"
+          $filename  = "MailRecords_${domain}_${timestamp}.csv"
+          $json | Export-Csv -Path $filename -NoTypeInformation -Force
+          Write-Host "CSV exported: $filename"
+          # Stash filename for upload step
+          echo "CSV_FILE=$filename" >> $env:GITHUB_ENV
+
+      - name: Upload CSV artifact
+        if: ${{ github.event.inputs.export == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MailRecords-${{ github.event.inputs.domain }}
+          path: ${{ env.CSV_FILE }}
+          retention-days: 30
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
