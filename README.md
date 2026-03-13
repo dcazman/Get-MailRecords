@@ -17,6 +17,7 @@ Checks **A, MX, NS, SPF, DMARC, and DKIM** records. Supports bulk/pipeline input
 - [Parameters](#parameters)
 - [Examples](#examples)
 - [Output](#output)
+- [GitHub Actions](#github-actions)
 - [Notes](#notes)
 
 ---
@@ -157,6 +158,53 @@ Results are returned as `PSCustomObject` with the following properties:
 | `RECORDTYPE`          | The record type queried (`TXT` or `CNAME`) |
 | `SERVER`              | The DNS server used |
 | `NS_First2`           | First two NS records |
+
+---
+
+## GitHub Actions
+
+The included workflow (`get-mailrecords.yml`) lets you run `GMR` directly from GitHub without a local PowerShell environment. Results are published as an HTML report to **GitHub Pages** at:
+
+```
+https://<your-username>.github.io/<your-repo>/
+```
+
+Each run overwrites the previous report. The URL is permanent — there is no expiry.
+
+### Setup (one-time)
+
+1. Place `get-mailrecords.yml` in `.github/workflows/` in your repo.
+2. Ensure `Get-MailRecords.psm1` is in the root of the repo.
+3. Enable GitHub Pages: **Settings → Pages → Source → GitHub Actions**.
+
+### Triggering a run
+
+1. Go to **Actions → Get-MailRecords DNS Lookup**.
+2. Click **Run workflow**.
+3. Fill in the inputs and click **Run workflow** again.
+4. When the run completes, the Pages URL will be live with the new report.
+
+### Inputs
+
+| Input | Required | Default | Description |
+| :---- | :------- | :------ | :---------- |
+| `domain` | Yes | — | Domain, email, or URL to query (e.g. `example.com`) |
+| `selector` | No | *(auto-discover)* | DKIM selector. Leave blank to try the built-in selector list automatically. |
+| `server` | No | `8.8.8.8` | DNS server to query. |
+| `record_type` | No | `TXT` | Record type for SPF, DMARC, and DKIM. Options: `TXT`, `CNAME`, `BOTH`. |
+| `sub` | No | `false` | ☑ Query the subdomain **and** the base domain. e.g. `mail.example.com` returns results for both. |
+| `just_sub` | No | `false` | ☑ Query the subdomain **only** — skips the base domain lookup. |
+| `export` | No | `false` | ☑ Export results to a timestamped CSV, downloadable from the run summary as an artifact (kept 30 days). |
+
+### Limitations
+
+- **One domain per run** — pipeline and bulk CSV input are not supported in the workflow. Run the module locally for bulk lookups.
+- **Last run only** — the Pages report always reflects the most recent run. There is no history of previous results.
+- **Windows runner required** — the workflow uses `windows-latest` for `Resolve-DnsName`. This is handled automatically; no configuration needed.
+- **`sub` and `just_sub` are mutually exclusive** — checking both will pass both flags to the module; `-JustSub` takes precedence per the module's own logic.
+- **CSV artifact expires after 30 days** — download it from the run summary if you need to keep it longer.
+
+---
 
 ## Notes
 
