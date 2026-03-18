@@ -10,6 +10,14 @@ Checks **A, MX, NS, SPF, DMARC, and DKIM** records. Supports bulk/pipeline input
 
 ---
 
+## 🌐 Try it now — no install required
+
+**[gmr.thecasmas.com](https://gmr.thecasmas.com)**
+
+Paste a domain, get your mail DNS records instantly. Works in any browser, on any device.
+
+---
+
 ## Table of Contents
 
 - [Requirements](#requirements)
@@ -192,9 +200,9 @@ Each run overwrites the previous report. The URL is permanent — there is no ex
 | `selector` | No | *(auto-discover)* | DKIM selector. Leave blank to try the built-in selector list automatically. |
 | `server` | No | `8.8.8.8` | DNS server to query. |
 | `record_type` | No | `TXT` | Record type for SPF, DMARC, and DKIM. Options: `TXT`, `CNAME`, `BOTH`. |
-| `sub` | No | `false` | ☑ Query the subdomain **and** the base domain. e.g. `mail.example.com` returns results for both. |
-| `just_sub` | No | `false` | ☑ Query the subdomain **only** — skips the base domain lookup. |
-| `export` | No | `false` | ☑ Export results to a timestamped CSV, downloadable from the run summary as an artifact (kept 30 days). |
+| `sub` | No | `false` | Query the subdomain **and** the base domain. |
+| `just_sub` | No | `false` | Query the subdomain **only** — skips the base domain lookup. |
+| `export` | No | `false` | Export results to a timestamped CSV, downloadable from the run summary as an artifact (kept 30 days). |
 
 ### Limitations
 
