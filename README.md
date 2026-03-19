@@ -14,7 +14,7 @@ Checks **A, MX, NS, SPF, DMARC, and DKIM** records. Supports bulk/pipeline input
 
 **[gmr.thecasmas.com](https://gmr.thecasmas.com)**
 
-Emter a domain, get your mail DNS records instantly. Works in any browser, on any device. No information saved.
+Enter a domain, get your mail DNS records instantly. Works in any browser, on any device. No information saved.
 
 ---
 
