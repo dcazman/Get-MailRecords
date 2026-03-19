@@ -631,3 +631,5 @@ function Get-MailRecords {
         }
     }
 }
+
+Export-ModuleMember -Function 'Get-MailRecords' -Alias 'GMR'
