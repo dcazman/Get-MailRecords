@@ -121,18 +121,18 @@ function Get-MailRecords {
         }
 
         $ExportFormat = $null
-        $OutputPath   = $null
+        $OutputPath = $null
         if ($Export) {
             $script:AllResults = @()
             if ($Export -match '\.(csv|json)$') {
-                $OutputPath   = $Export
+                $OutputPath = $Export
                 $ExportFormat = ($Export -split '\.')[-1].ToUpper()
             }
             elseif ($Export -match '^(csv|json)$') {
                 $ExportFormat = $Export.ToUpper()
-                $timestamp    = Get-Date -Format "yyyyMMdd_HHmm"
-                $extension    = $ExportFormat.ToLower()
-                $OutputPath   = Join-Path (Get-Location).Path "MailRecords_$timestamp.$extension"
+                $timestamp = Get-Date -Format "yyyyMMdd_HHmm"
+                $extension = $ExportFormat.ToLower()
+                $OutputPath = Join-Path (Get-Location).Path "MailRecords_$timestamp.$extension"
             }
             else {
                 Write-Error "Export parameter must be a filename with .csv/.json extension, or 'CSV'/'JSON'."
@@ -155,7 +155,7 @@ function Get-MailRecords {
             if ($script:DnsMethod -eq 'ResolveDnsName') {
                 return Resolve-DnsName -Name $Name -Type $Type -Server $Server -DnsOnly -ErrorAction SilentlyContinue
             }
-            $digArgs  = "@$Server", "+noall", "+answer", "-t", $Type.ToUpper(), $Name
+            $digArgs = "@$Server", "+noall", "+answer", "-t", $Type.ToUpper(), $Name
             $digOutput = & dig @digArgs 2>$null
             if (-not $digOutput) { return $null }
             $results = [System.Collections.Generic.List[object]]::new()
@@ -163,22 +163,22 @@ function Get-MailRecords {
                 if ([string]::IsNullOrWhiteSpace($line) -or $line -match '^\s*;') { continue }
                 if ($line -match '^(\S+)\s+(\d+)\s+IN\s+(\S+)\s+(.+)$') {
                     $recordName = $Matches[1].TrimEnd('.')
-                    $ttl        = [int]$Matches[2]
+                    $ttl = [int]$Matches[2]
                     $recordType = $Matches[3].ToUpper()
-                    $data       = $Matches[4].Trim()
+                    $data = $Matches[4].Trim()
                     $obj = [PSCustomObject]@{ Name = $recordName; Type = $recordType; TTL = $ttl }
                     switch ($recordType) {
-                        'A'     { $obj | Add-Member -NotePropertyName 'IPAddress' -NotePropertyValue $data }
-                        'MX'    {
+                        'A' { $obj | Add-Member -NotePropertyName 'IPAddress' -NotePropertyValue $data }
+                        'MX' {
                             if ($data -match '^(\d+)\s+(\S+)$') {
                                 $obj | Add-Member -NotePropertyName 'Preference'    -NotePropertyValue ([int]$Matches[1])
                                 $obj | Add-Member -NotePropertyName 'NameExchange'  -NotePropertyValue $Matches[2].TrimEnd('.')
                             }
                         }
-                        'NS'    { $obj | Add-Member -NotePropertyName 'NameHost' -NotePropertyValue $data.TrimEnd('.') }
+                        'NS' { $obj | Add-Member -NotePropertyName 'NameHost' -NotePropertyValue $data.TrimEnd('.') }
                         'CNAME' { $obj | Add-Member -NotePropertyName 'NameHost' -NotePropertyValue $data.TrimEnd('.') }
-                        'PTR'   { $obj | Add-Member -NotePropertyName 'NameHost' -NotePropertyValue $data.TrimEnd('.') }
-                        'TXT'   {
+                        'PTR' { $obj | Add-Member -NotePropertyName 'NameHost' -NotePropertyValue $data.TrimEnd('.') }
+                        'TXT' {
                             $parts = [regex]::Matches($data, '"([^"]*)"') | ForEach-Object { $_.Groups[1].Value }
                             if (-not $parts) { $parts = @($data) }
                             $obj | Add-Member -NotePropertyName 'Strings' -NotePropertyValue @($parts)
@@ -212,8 +212,8 @@ function Get-MailRecords {
                 $cnameRecord = $SPF | Where-Object { $_.Type -eq 'CNAME' }
                 if ($cnameRecord) {
                     $targetDomain = $cnameRecord.NameHost
-                    $targetSPF    = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
-                    $spfRecord    = $targetSPF.Strings | Where-Object { $_ -like "v=spf1*" }
+                    $targetSPF = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
+                    $spfRecord = $targetSPF.Strings | Where-Object { $_ -like "v=spf1*" }
                     if ($spfRecord) { return "CNAME -> $targetDomain : $spfRecord" }
                     return "CNAME -> $targetDomain (no SPF found)"
                 }
@@ -224,20 +224,20 @@ function Get-MailRecords {
         # -- Helper: Get-PTR ---------------------------------------------------
         # Takes an IP address, performs reverse DNS lookup, returns hostname and match status.
         function Get-PTR {
-            param ([string]$IP, [string]$Domain, [string]$Server)
-            if ($IP -eq 'None') { return @{ Host = 'None'; Status = 'None' } }
+            param ([string]$IP, [string]$Server)
+            if ($IP -eq 'None' -or [string]::IsNullOrWhiteSpace($IP)) { return @{ Host = 'None'; Status = 'None' } }
 
             $ptrResult = $null
             if ($script:DnsMethod -eq 'ResolveDnsName') {
                 $ptrResult = Resolve-DnsName -Name $IP -Type PTR -Server $Server -DnsOnly -ErrorAction SilentlyContinue |
-                             Where-Object { $_.Type -eq 'PTR' } |
-                             Select-Object -First 1
+                Where-Object { $_.Type -eq 'PTR' } |
+                Select-Object -First 1
                 $ptrHost = $ptrResult.NameHost
             }
             else {
-                $digArgs   = "@$Server", "+noall", "+answer", "-x", $IP
+                $digArgs = "@$Server", "+noall", "+answer", "-x", $IP
                 $digOutput = & dig @digArgs 2>$null
-                $ptrHost   = $null
+                $ptrHost = $null
                 foreach ($line in $digOutput) {
                     if ($line -match 'PTR\s+(\S+)$') {
                         $ptrHost = $Matches[1].TrimEnd('.')
@@ -250,8 +250,10 @@ function Get-MailRecords {
                 return @{ Host = 'None'; Status = 'None' }
             }
 
-            # Match check: does the PTR hostname contain the queried domain?
-            $status = if ($ptrHost -like "*$Domain*") { '===' } else { '=/=' }
+            # FCrDNS check: forward-resolve the PTR hostname and confirm the original IP is present.
+            $fwdQuery = Invoke-DnsQuery -Name $ptrHost -Type 'A' -Server $Server | Where-Object { $_.Type -eq 'A' }
+            $fwdIPs = $fwdQuery | ForEach-Object { $_.IPAddress }
+            $status = if ($fwdIPs -contains $IP) { '===' } else { '=/=' }
             return @{ Host = $ptrHost; Status = $status }
         }
 
@@ -287,7 +289,7 @@ function Get-MailRecords {
 
         # -- Domain normalisation ----------------------------------------------
         $UserProvidedSelector = $PSBoundParameters.ContainsKey('Selector')
-        $SelectorInput        = if ($UserProvidedSelector) { $Selector.ToLowerInvariant() } else { $null }
+        $SelectorInput = if ($UserProvidedSelector) { $Selector.ToLowerInvariant() } else { $null }
 
         $TestDomain = try { ([System.Uri]$Domain).Host.TrimStart('www.') }
         catch {
@@ -317,16 +319,6 @@ function Get-MailRecords {
         # -- Record type iteration setup ---------------------------------------
         $RecordTypeTest = if ($RecordType -eq 'BOTH') { @('TXT', 'CNAME') } else { @($RecordType.ToUpper()) }
 
-        # -- A record ----------------------------------------------------------
-        # Returns the first IP found, or 'None'.
-        $aQuery   = Invoke-DnsQuery -Name $TestDomain -Type 'A' -Server $Server | Where-Object { $_.Type -eq 'A' }
-        $resultA  = if ($aQuery) { ($aQuery | Select-Object -First 1).IPAddress } else { 'None' }
-
-        # -- PTR record --------------------------------------------------------
-        $ptrData      = Get-PTR -IP $resultA -Domain $TestDomain -Server $Server
-        $resultPTR    = if ($ptrData.Host -ne 'None') { "$($ptrData.Host) $($ptrData.Status) $resultA" } else { 'None' }
-        $resultPTRStat = $ptrData.Status
-
         # -- MX records --------------------------------------------------------
         try {
             $mxRecords = Invoke-DnsQuery -Name $TestDomain -Type 'MX' -Server $Server | Sort-Object -Property Preference
@@ -336,24 +328,41 @@ function Get-MailRecords {
             $mxRecords = $null
         }
 
+        $primaryMxHost = $null
         if ($mxRecords -and $mxRecords.Type -contains 'MX') {
             $formattedMX = $mxRecords |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_.NameExchange) } |
-                Select-Object @{n="Name";e={$_.NameExchange}}, @{n="Preference";e={$_.Preference}}, @{n="TTL";e={$_.TTL}}
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_.NameExchange) } |
+            Select-Object @{n = "Name"; e = { $_.NameExchange } }, @{n = "Preference"; e = { $_.Preference } }, @{n = "TTL"; e = { $_.TTL } }
             $resultmx = ($formattedMX | ForEach-Object { "$($_.Name) [pref $($_.Preference), TTL $($_.TTL)]" }) -join " | "
+            $primaryMxHost = ($mxRecords | Where-Object { -not [string]::IsNullOrWhiteSpace($_.NameExchange) } | Select-Object -First 1).NameExchange
         }
         else {
             Write-Verbose "No MX records found for domain: $Domain"
             $resultmx = 'None'
         }
 
+        # -- A record (primary MX host) ----------------------------------------
+        # Resolves the lowest-preference MX hostname to an IP — this is the IP
+        # that matters for PTR/mail-server identity checks.
+        if ($primaryMxHost) {
+            $aQuery = Invoke-DnsQuery -Name $primaryMxHost -Type 'A' -Server $Server | Where-Object { $_.Type -eq 'A' }
+            $resultA = if ($aQuery) { ($aQuery | Select-Object -First 1).IPAddress } else { 'None' }
+        }
+        else {
+            $resultA = 'None'
+        }
+
+        # -- PTR record --------------------------------------------------------
+        $ptrData = Get-PTR -IP $resultA -Server $Server
+        $resultPTR = if ($ptrData.Host -ne 'None') { "$($ptrData.Host) $($ptrData.Status) $resultA" } else { 'None' }
+
         # -- Per-record-type pass ----------------------------------------------
         $Output = $RecordTypeTest | ForEach-Object {
             $TempType = $_
 
             # Reset DKIM state for each pass
-            $resultdkim    = 'None'
-            $SelectorOut   = 'unprovided'
+            $resultdkim = 'None'
+            $SelectorOut = 'unprovided'
 
             # -- SPF -----------------------------------------------------------
             $resultspf = Get-SPF -Domain $TestDomain -Server $Server -Type $TempType
@@ -372,9 +381,9 @@ function Get-MailRecords {
                     $cnameRecord = $DMARC | Where-Object { $_.Type -eq 'CNAME' }
                     if ($cnameRecord) {
                         $targetDomain = $cnameRecord.NameHost
-                        $targetDMARC  = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
-                        $dmarcRecord  = ($targetDMARC.Strings -like "v=DMARC1*") -join ' '
-                        $resultdmarc  = if ($dmarcRecord) { "CNAME -> $targetDomain : $dmarcRecord" } else { "CNAME -> $targetDomain (no DMARC found)" }
+                        $targetDMARC = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
+                        $dmarcRecord = ($targetDMARC.Strings -like "v=DMARC1*") -join ' '
+                        $resultdmarc = if ($dmarcRecord) { "CNAME -> $targetDomain : $dmarcRecord" } else { "CNAME -> $targetDomain (no DMARC found)" }
                     }
                     else { $resultdmarc = 'None' }
                 }
@@ -385,7 +394,7 @@ function Get-MailRecords {
                 # User provided a selector — query it directly, no auto-discovery.
                 $SelectorOut = $SelectorInput
                 $DKIM = Invoke-DnsQuery -Name "$($SelectorInput)._domainkey.$($TestDomain)" -Type $TempType -Server $Server |
-                        Where-Object { $_.Type -eq $TempType }
+                Where-Object { $_.Type -eq $TempType }
                 if ($DKIM) {
                     if ($TempType -eq 'TXT') {
                         foreach ($Item in $DKIM) {
@@ -399,9 +408,9 @@ function Get-MailRecords {
                         $cnameRecord = $DKIM | Where-Object { $_.Type -eq 'CNAME' }
                         if ($cnameRecord) {
                             $targetDomain = $cnameRecord.NameHost
-                            $targetDKIM   = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
-                            $dkimRecord   = $targetDKIM | Where-Object { $_.Strings -match "v=DKIM1" }
-                            $resultdkim   = if ($dkimRecord) { "CNAME -> $targetDomain : $(($dkimRecord.Strings -join ''))" } else { 'None' }
+                            $targetDKIM = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
+                            $dkimRecord = $targetDKIM | Where-Object { $_.Strings -match "v=DKIM1" }
+                            $resultdkim = if ($dkimRecord) { "CNAME -> $targetDomain : $(($dkimRecord.Strings -join ''))" } else { 'None' }
                         }
                     }
                 }
@@ -411,13 +420,13 @@ function Get-MailRecords {
                 $BreakFlag = $false
                 foreach ($line in $DkimSelectors) {
                     $DKIM = Invoke-DnsQuery -Name "$($line)._domainkey.$($TestDomain)" -Type $TempType -Server $Server |
-                            Where-Object { $_.Type -eq $TempType }
+                    Where-Object { $_.Type -eq $TempType }
                     if ($TempType -eq 'TXT') {
                         $DKIM = $DKIM | Where-Object { $_.Strings -match "v=DKIM1" }
                         foreach ($Item in $DKIM) {
-                            $resultdkim  = ($Item.Strings -join "")
+                            $resultdkim = ($Item.Strings -join "")
                             $SelectorOut = $line
-                            $BreakFlag   = $true
+                            $BreakFlag = $true
                             break
                         }
                     }
@@ -425,12 +434,12 @@ function Get-MailRecords {
                         $cnameRecord = $DKIM | Where-Object { $_.Type -eq 'CNAME' }
                         if ($cnameRecord) {
                             $targetDomain = $cnameRecord.NameHost
-                            $targetDKIM   = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
-                            $dkimRecord   = $targetDKIM | Where-Object { $_.Strings -match "v=DKIM1" }
+                            $targetDKIM = Invoke-DnsQuery -Name $targetDomain -Type 'TXT' -Server $Server
+                            $dkimRecord = $targetDKIM | Where-Object { $_.Strings -match "v=DKIM1" }
                             if ($dkimRecord) {
-                                $resultdkim  = "CNAME -> $targetDomain : $(($dkimRecord.Strings -join ''))"
+                                $resultdkim = "CNAME -> $targetDomain : $(($dkimRecord.Strings -join ''))"
                                 $SelectorOut = $line
-                                $BreakFlag   = $true
+                                $BreakFlag = $true
                             }
                         }
                     }
@@ -456,9 +465,8 @@ function Get-MailRecords {
                 DOMAIN            = $TestDomain
                 SERVER            = $Server
                 RECORDTYPE        = $TempType
-                A                 = $resultA
+                MX_A              = $resultA
                 PTR               = $resultPTR
-                PTR_STATUS        = $resultPTRStat
                 MX                = $resultmx
                 "SPF_$TempType"   = $resultspf
                 "DMARC_$TempType" = $resultdmarc
@@ -478,10 +486,11 @@ function Get-MailRecords {
         else {
             if ($Export) { $script:AllResults += $Output } else { $Output }
             if ($Sub -eq $true -and ($TestDomain.Split('.').count -gt 2)) {
-                $tParts      = $TestDomain.Split('.')
+                $tParts = $TestDomain.Split('.')
                 $parentDomain = if ($tParts.Count -gt 2 -and $tParts[-2].Length -eq 2 -and $tParts[-1].Length -le 3) {
                     $tParts[-3..-1] -join '.'
-                } else {
+                }
+                else {
                     $tParts[-2, -1] -join '.'
                 }
                 if ($parentDomain -ne $TestDomain) {
@@ -499,7 +508,7 @@ function Get-MailRecords {
         if ($ExportFormat -and $script:AllResults.Count -gt 0) {
             try {
                 switch ($ExportFormat) {
-                    'CSV'  {
+                    'CSV' {
                         $script:AllResults | Export-Csv -Path $OutputPath -NoTypeInformation -Force
                         Write-Host "Results exported to: $OutputPath" -ForegroundColor Green
                     }
