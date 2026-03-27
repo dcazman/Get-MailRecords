@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           # Load the module
-          Import-Module ./Modules/Get-MailRecords/Get-MailRecords.psm1 -Force
+          Import-Module ./Get-MailRecords.psm1 -Force
 
           # Build GMR command arguments
           $domain     = '${{ github.event.inputs.domain }}'
