@@ -21,7 +21,6 @@ Major feature release.
 - **Added** `MTA-STS` — `_mta-sts` TXT record lookup
 - **Added** `TLS-RPT` — `_smtp._tls` TXT record lookup
 - **Removed** the boolean A-record field from the output object
-- **Improved** `-Selector` defaults to auto-discovery when not provided; the `SELECTOR` output field shows `unprovided` when DKIM is not found and no selector was given — a deliberate hint to the user to try supplying one explicitly
 - **Hardened** `dig` path with `+time=2 +tries=1` and improved comment/blank-line filtering
 
 ---
