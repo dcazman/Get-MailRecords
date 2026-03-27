@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           # Load the module
-          Import-Module ./Get-MailRecords.psm1 -Force
+          Import-Module ./Modules/Get-MailRecords/Get-MailRecords.psm1 -Force
 
           # Build GMR command arguments
           $domain     = '${{ github.event.inputs.domain }}'
@@ -103,30 +103,24 @@ jobs:
           $results | Format-List | Out-String | Write-Host
 
           # Save as JSON for the report step
-          # Normalize A record boolean to string before JSON serialization
-          $results = $results | ForEach-Object {
-            $_.A = if ($_.A -eq $true) { 'True' } else { 'False' }
-            $_
-          }
-
           $results | ConvertTo-Json -Depth 10 | Out-File -FilePath results.json -Encoding utf8
           Write-Host "DNS lookup complete."
 
       - name: Generate HTML Report
         shell: pwsh
         run: |
-          $json      = Get-Content results.json -Raw | ConvertFrom-Json
-          $domain    = '${{ github.event.inputs.domain }}'
-          $ran       = (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
-          $useSub    = '${{ github.event.inputs.sub }}' -eq 'true'
+          $json       = Get-Content results.json -Raw | ConvertFrom-Json
+          $domain     = '${{ github.event.inputs.domain }}'
+          $ran        = (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
+          $useSub     = '${{ github.event.inputs.sub }}' -eq 'true'
           $useJustSub = '${{ github.event.inputs.just_sub }}' -eq 'true'
-          $useExport = '${{ github.event.inputs.export }}' -eq 'true'
-          $runUrl    = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          $useExport  = '${{ github.event.inputs.export }}' -eq 'true'
+          $runUrl     = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Build options panel rows — blank if not used
-          $optSub      = if ($useSub)     { "<span class='opt-on'>&#10003; enabled</span>" } else { "<span class='opt-off'>&mdash;</span>" }
-          $optJustSub  = if ($useJustSub) { "<span class='opt-on'>&#10003; enabled</span>" } else { "<span class='opt-off'>&mdash;</span>" }
-          $optExport   = if ($useExport)  {
+          # Build options panel rows
+          $optSub     = if ($useSub)     { "<span class='opt-on'>&#10003; enabled</span>" } else { "<span class='opt-off'>&mdash;</span>" }
+          $optJustSub = if ($useJustSub) { "<span class='opt-on'>&#10003; enabled</span>" } else { "<span class='opt-off'>&mdash;</span>" }
+          $optExport  = if ($useExport)  {
             "<span class='opt-on'>&#10003; enabled</span><br><small><a href='$runUrl' target='_blank'>View run summary</a> &rarr; look in the <em>Upload CSV artifact</em> section</small>"
           } else { "<span class='opt-off'>&mdash;</span>" }
 
@@ -134,17 +128,16 @@ jobs:
           $cards = ""
           foreach ($r in @($json)) {
             function Row($label, $value) {
-              # Handle booleans, "True"/"False" strings, and $false/$null
               $found = ($value -ne $null) -and
                        ($value -ne $false) -and
                        ($value -ne 'False') -and
                        ($value -ne '') -and
+                       ($value -ne 'None') -and
                        ($value -ne 'unprovided')
               $color = if ($found) { '#2ea043' } else { '#da3633' }
               $badge = if ($found) { "<span class='badge' style='background:$color'>FOUND</span>" } `
                        else        { "<span class='badge' style='background:$color'>NOT FOUND</span>" }
-              $displayVal = if ($value -eq 'True' -or $value -eq 'False') { $value } else { $value }
-              $display = if ($found) { "<code>$([System.Web.HttpUtility]::HtmlEncode($displayVal))</code>" } else { "<em style='color:#8b949e'>—</em>" }
+              $display = if ($found) { "<code>$([System.Web.HttpUtility]::HtmlEncode($value))</code>" } else { "<em style='color:#8b949e'>—</em>" }
               return "<tr><td class='label'>$label</td><td>$badge</td><td class='val'>$display</td></tr>"
             }
 
@@ -155,13 +148,17 @@ jobs:
             <table>
               <thead><tr><th>Record</th><th>Status</th><th>Value</th></tr></thead>
               <tbody>
-                $(Row 'A Record'  $r.A)
-                $(Row 'MX'        $r.MX)
-                $(Row "SPF ($rt)" $r."SPF_$rt")
-                $(Row "DMARC ($rt)" $r."DMARC_$rt")
-                $(Row "DKIM ($rt)" $r."DKIM_$rt")
+                $(Row 'MX_A (IP)'     $r.MX_A)
+                $(Row 'PTR (FCrDNS)'  $r.PTR)
+                $(Row 'MX'            $r.MX)
+                $(Row "SPF ($rt)"     $r."SPF_$rt")
+                $(Row "DMARC ($rt)"   $r."DMARC_$rt")
+                $(Row "DKIM ($rt)"    $r."DKIM_$rt")
                 $(Row 'DKIM Selector' $r.SELECTOR)
-                $(Row 'NS (first 2)' $r.NS_First2)
+                $(Row 'BIMI'          $r.BIMI)
+                $(Row 'NS (first 2)'  $r.NS_First2)
+                $(Row 'MTA-STS'       $r.MTA_STS)
+                $(Row 'TLS-RPT'       $r.TLS_RPT)
               </tbody>
             </table>
           </div>
