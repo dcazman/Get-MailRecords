@@ -142,7 +142,9 @@ function Get-MailRecords {
                 [string]$Server
             )
 
-            if ($Type -eq 'BOTH') { $Type = 'TXT' }
+            if ($Type -eq 'BOTH') {
+                return @('TXT', 'CNAME') | ForEach-Object { Invoke-DnsQuery -Name $Name -Type $_ -Server $Server }
+            }
 
             if ($script:DnsMethod -eq 'ResolveDnsName') {
                 return Resolve-DnsName -Name $Name -Type $Type -Server $Server -DnsOnly -ErrorAction SilentlyContinue
