@@ -1,0 +1,295 @@
+name: Get-MailRecords DNS Lookup
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: "Domain, email, or URL to query (e.g. example.com)"
+        required: true
+        type: string
+      selector:
+        description: "DKIM selector (leave blank to auto-discover)"
+        required: false
+        type: string
+        default: ""
+      server:
+        description: "DNS server to query"
+        required: false
+        type: string
+        default: "8.8.8.8"
+      record_type:
+        description: "Record type for SPF/DMARC/DKIM"
+        required: false
+        type: choice
+        options:
+          - TXT
+          - CNAME
+          - BOTH
+        default: TXT
+      sub:
+        description: "Query subdomain AND base domain (e.g. mail.example.com + example.com)"
+        required: false
+        type: boolean
+        default: false
+      just_sub:
+        description: "Query subdomain ONLY — skip base domain lookup"
+        required: false
+        type: boolean
+        default: false
+      export:
+        description: "Export results to a downloadable CSV artifact"
+        required: false
+        type: boolean
+        default: false
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only allow one deployment at a time
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  dns-lookup:
+    name: Run DNS Lookup
+    runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Get-MailRecords
+        id: dns
+        shell: pwsh
+        run: |
+          # Load the module
+          Import-Module ./Get-MailRecords.psm1 -Force
+
+          # Build GMR command arguments
+          $domain     = '${{ github.event.inputs.domain }}'
+          $server     = '${{ github.event.inputs.server }}'
+          $recordType = '${{ github.event.inputs.record_type }}'
+          $selector   = '${{ github.event.inputs.selector }}'
+          $sub        = '${{ github.event.inputs.sub }}' -eq 'true'
+          $justSub    = '${{ github.event.inputs.just_sub }}' -eq 'true'
+          $export     = '${{ github.event.inputs.export }}' -eq 'true'
+
+          # Echo the command being run for transparency
+          $cmd = "GMR -d `"$domain`" -srv `"$server`" -r `"$recordType`""
+          if ($selector -ne '') { $cmd += " -sel `"$selector`"" }
+          if ($sub)     { $cmd += " -s" }
+          if ($justSub) { $cmd += " -js" }
+          Write-Host "Running: $cmd"
+
+          # Execute GMR with splatted params
+          $params = @{
+            Domain     = $domain
+            Server     = $server
+            RecordType = $recordType
+          }
+          if ($selector -ne '') { $params['Selector'] = $selector }
+          if ($sub)     { $params['Sub'] = $true }
+          if ($justSub) { $params['JustSub'] = $true }
+
+          $results = GMR @params
+
+          # Echo to Actions log
+          $results | Format-List | Out-String | Write-Host
+
+          # Save as JSON for the report step
+          $results | ConvertTo-Json -Depth 10 | Out-File -FilePath results.json -Encoding utf8
+          Write-Host "DNS lookup complete."
+
+      - name: Generate HTML Report
+        shell: pwsh
+        run: |
+          $json       = Get-Content results.json -Raw | ConvertFrom-Json
+          $domain     = '${{ github.event.inputs.domain }}'
+          $ran        = (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
+          $useSub     = '${{ github.event.inputs.sub }}' -eq 'true'
+          $useJustSub = '${{ github.event.inputs.just_sub }}' -eq 'true'
+          $useExport  = '${{ github.event.inputs.export }}' -eq 'true'
+          $runUrl     = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Build options panel rows
+          $optSub     = if ($useSub)     { "<span class='opt-on'>&#10003; enabled</span>" } else { "<span class='opt-off'>&mdash;</span>" }
+          $optJustSub = if ($useJustSub) { "<span class='opt-on'>&#10003; enabled</span>" } else { "<span class='opt-off'>&mdash;</span>" }
+          $optExport  = if ($useExport)  {
+            "<span class='opt-on'>&#10003; enabled</span><br><small><a href='$runUrl' target='_blank'>View run summary</a> &rarr; look in the <em>Upload CSV artifact</em> section</small>"
+          } else { "<span class='opt-off'>&mdash;</span>" }
+
+          # Build one HTML card per result object (BOTH mode returns two)
+          $cards = ""
+          foreach ($r in @($json)) {
+            function Row($label, $value) {
+              $found = ($value -ne $null) -and
+                       ($value -ne $false) -and
+                       ($value -ne 'False') -and
+                       ($value -ne '') -and
+                       ($value -ne 'None') -and
+                       ($value -ne 'unprovided')
+              $color = if ($found) { '#2ea043' } else { '#da3633' }
+              $badge = if ($found) { "<span class='badge' style='background:$color'>FOUND</span>" } `
+                       else        { "<span class='badge' style='background:$color'>NOT FOUND</span>" }
+              $display = if ($found) { "<code>$([System.Web.HttpUtility]::HtmlEncode($value))</code>" } else { "<em style='color:#8b949e'>—</em>" }
+              return "<tr><td class='label'>$label</td><td>$badge</td><td class='val'>$display</td></tr>"
+            }
+
+            $rt = $r.RECORDTYPE
+            $cards += @"
+          <div class='card'>
+            <h2>Record Type: <span class='rt'>$rt</span></h2>
+            <table>
+              <thead><tr><th>Record</th><th>Status</th><th>Value</th></tr></thead>
+              <tbody>
+                $(Row 'MX_A (IP)'     $r.MX_A)
+                $(Row 'PTR (FCrDNS)'  $r.PTR)
+                $(Row 'MX'            $r.MX)
+                $(Row "SPF ($rt)"     $r."SPF_$rt")
+                $(Row "DMARC ($rt)"   $r."DMARC_$rt")
+                $(Row "DKIM ($rt)"    $r."DKIM_$rt")
+                $(Row 'DKIM Selector' $r.SELECTOR)
+                $(Row 'BIMI'          $r.BIMI)
+                $(Row 'NS (first 2)'  $r.NS_First2)
+                $(Row 'MTA-STS'       $r.MTA_STS)
+                $(Row 'TLS-RPT'       $r.TLS_RPT)
+              </tbody>
+            </table>
+          </div>
+          "@
+          }
+
+          $html = @"
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>MailRecords: $domain</title>
+            <style>
+              *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                     background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 2rem 1rem; }
+              header { text-align: center; margin-bottom: 2rem; }
+              header h1 { font-size: 1.8rem; color: #58a6ff; }
+              header p  { color: #8b949e; font-size: 0.9rem; margin-top: .4rem; }
+              .meta { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;
+                      margin-bottom: 2rem; font-size: 0.85rem; color: #8b949e; }
+              .meta span b { color: #c9d1d9; }
+              .layout { display: flex; gap: 1.5rem; max-width: 1100px; margin: 0 auto; align-items: flex-start; }
+              .sidebar { flex: 0 0 200px; background: #161b22; border: 1px solid #30363d;
+                         border-radius: 8px; padding: 1.25rem; font-size: 0.8rem; }
+              .sidebar h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .05em;
+                            color: #8b949e; margin-bottom: 1rem; font-weight: 600; }
+              .sidebar .opt-label { color: #8b949e; margin-bottom: .2rem; font-size: .75rem; }
+              .sidebar .opt-val   { margin-bottom: .85rem; line-height: 1.5; }
+              .opt-on  { color: #2ea043; font-weight: 600; }
+              .opt-off { color: #484f58; }
+              .sidebar a { color: #58a6ff; text-decoration: none; font-size: .72rem; }
+              .sidebar small { font-size: .72rem; color: #8b949e; line-height: 1.4; }
+              .main { flex: 1; min-width: 0; }
+              .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+                      margin-bottom: 1.5rem; padding: 1.5rem; }
+              .card h2 { font-size: 1rem; color: #8b949e; margin-bottom: 1rem; font-weight: 500; }
+              .rt { color: #58a6ff; font-weight: 700; }
+              table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+              th { text-align: left; padding: .5rem .75rem; color: #8b949e;
+                   border-bottom: 1px solid #30363d; font-weight: 600; }
+              td { padding: .6rem .75rem; border-bottom: 1px solid #21262d; vertical-align: top; }
+              td.label { color: #8b949e; white-space: nowrap; width: 160px; }
+              td.val { word-break: break-all; }
+              tr:last-child td { border-bottom: none; }
+              .badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px;
+                       font-size: .7rem; font-weight: 700; color: #fff; white-space: nowrap; }
+              code { background: #0d1117; padding: .1rem .3rem; border-radius: 4px;
+                     font-family: 'SFMono-Regular', Consolas, monospace; font-size: .8rem;
+                     color: #79c0ff; white-space: pre-wrap; }
+              footer { text-align: center; margin-top: 2rem; font-size: .75rem; color: #484f58; }
+              footer a { color: #58a6ff; text-decoration: none; }
+              @media (max-width: 640px) { .layout { flex-direction: column; } .sidebar { flex: none; width: 100%; } }
+            </style>
+          </head>
+          <body>
+            <header>
+              <h1>&#128231; Get-MailRecords Report</h1>
+              <p>DNS mail record lookup results</p>
+            </header>
+            <div class='meta'>
+              <span><b>Domain:</b> $domain</span>
+              <span><b>DNS Server:</b> ${{ github.event.inputs.server }}</span>
+              <span><b>Record Type:</b> ${{ github.event.inputs.record_type }}</span>
+              <span><b>Run:</b> $ran</span>
+            </div>
+            <div class='layout'>
+              <aside class='sidebar'>
+                <h3>Options Used</h3>
+                <div class='opt-label'>-s (Sub)</div>
+                <div class='opt-val'>$optSub</div>
+                <div class='opt-label'>-js (JustSub)</div>
+                <div class='opt-val'>$optJustSub</div>
+                <div class='opt-label'>Export CSV</div>
+                <div class='opt-val'>$optExport</div>
+              </aside>
+              <div class='main'>
+                $cards
+              </div>
+            </div>
+            <footer>
+              Generated by <a href="https://github.com/${{ github.repository }}">Get-MailRecords</a>
+              &bull; <a href="$runUrl" target='_blank'>View Actions Run</a>
+            </footer>
+          </body>
+          </html>
+          "@
+
+          # Write to the Pages output folder
+          New-Item -ItemType Directory -Force -Path ./public | Out-Null
+          $html | Out-File -FilePath ./public/index.html -Encoding utf8
+          Write-Host "HTML report generated."
+
+      - name: Export CSV artifact
+        if: ${{ github.event.inputs.export == 'true' }}
+        shell: pwsh
+        run: |
+          $json      = Get-Content results.json -Raw | ConvertFrom-Json
+          $domain    = '${{ github.event.inputs.domain }}' -replace '[^a-zA-Z0-9._-]', '_'
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmm"
+          $filename  = "MailRecords_${domain}_${timestamp}.csv"
+          $json | Export-Csv -Path $filename -NoTypeInformation -Force
+          Write-Host "CSV exported: $filename"
+          # Stash filename for upload step
+          echo "CSV_FILE=$filename" >> $env:GITHUB_ENV
+
+      - name: Upload CSV artifact
+        if: ${{ github.event.inputs.export == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MailRecords-${{ github.event.inputs.domain }}
+          path: ${{ env.CSV_FILE }}
+          retention-days: 30
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: dns-lookup
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy
