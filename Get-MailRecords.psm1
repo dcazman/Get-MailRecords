@@ -266,7 +266,7 @@ function Get-MailRecords {
             else { 'None' }
 
             $ptr = Get-PTR -IP $mxA -Server $Server
-            $ptrDisplay = if ($mxA -ne 'None') { "$($ptr.Host) $($ptr.Status) $mxA" } else { 'None' }
+            $ptrDisplay = if ($mxA -ne 'None' -and $ptr.Host -ne 'None') { "$($ptr.Host) $($ptr.Status) $mxA" } else { 'None' }
 
             $nsItems = Invoke-DnsQuery -Name $Target -Type 'NS' -Server $Server | Where-Object { $_.Type -eq 'NS' } | Select-Object -First 2
             $ns = if ($nsItems) {
