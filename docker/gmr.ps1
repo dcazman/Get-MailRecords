@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-v2.0.0 — Queries mail DNS records (MX, SPF, DKIM, DMARC, BIMI, NS, MTA and TLS) for a domain or email.
+v2.0.0 â€” Queries mail DNS records (MX, SPF, DKIM, DMARC, BIMI, NS, MTA and TLS) for a domain or email.
 
 .DESCRIPTION
 Performs a comprehensive audit of mail-related DNS records. Includes FCrDNS (Forward-Confirmed
@@ -208,7 +208,7 @@ function Get-MailRecords {
                 $thehost = $ptr.NameHost
             }
             else {
-                $thehost = (& dig "@$Server" "+short" "-x" $IP)[0]
+                $thehost = @(& dig "@$Server" "+short" "-x" $IP)[0]
                 if ($thehost) { $thehost = $thehost.TrimEnd('.') }
             }
 
