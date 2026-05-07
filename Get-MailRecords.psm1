@@ -208,7 +208,7 @@ function Get-MailRecords {
                 $thehost = $ptr.NameHost
             }
             else {
-                $thehost = (& dig "@$Server" "+short" "-x" $IP)[0]
+                $thehost = @(& dig "@$Server" "+short" "-x" $IP)[0]
                 if ($thehost) { $thehost = $thehost.TrimEnd('.') }
             }
 
