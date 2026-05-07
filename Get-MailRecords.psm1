@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-v2.0.0 — Queries mail DNS records (MX, SPF, DKIM, DMARC, BIMI, NS, MTA and TLS) for a domain or email.
+v2.0.1 — Queries mail DNS records (MX, SPF, DKIM, DMARC, BIMI, NS, MTA and TLS) for a domain or email.
 
 .DESCRIPTION
 Performs a comprehensive audit of mail-related DNS records. Includes FCrDNS (Forward-Confirmed
