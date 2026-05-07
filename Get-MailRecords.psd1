@@ -10,7 +10,7 @@
     RootModule        = 'Get-MailRecords.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '2.0.0'
+    ModuleVersion     = '2.0.1'
 
     # Unique identifier for this module.
     GUID              = '86bd1cc5-e00e-49bb-a5b8-f119ff619878'
@@ -57,7 +57,7 @@
             ProjectUri   = 'https://github.com/dcazman/Get-MailRecords'
 
             # Release notes for this version of the module.
-            ReleaseNotes = 'v2.0.0: Major feature release. Added MX_A (A record of the primary MX host), PTR (FCrDNS validation — === match / =/= mismatch), BIMI (default._bimi TXT), MTA-STS (_mta-sts TXT), and TLS-RPT (_smtp._tls TXT) to the output object. Removed the boolean A-record field. -Selector defaults to DKIM auto-discovery; SELECTOR output shows unprovided when DKIM is not found and no selector was given, hinting the user to supply one explicitly. dig path hardened with +time=2 +tries=1 and improved comment/blank-line filtering.'
+            ReleaseNotes = 'v2.0.1: Dig array fix. '
 
         }
     }
