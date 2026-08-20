@@ -1,17 +1,17 @@
-# GMR â€” Get Mail Records
+# GMR — Get Mail Records
 ### Web deployment for gmr.thecasmas.com
 
 ## Files
 ```
 gmr-docker/
-â”œâ”€â”€ Dockerfile
-â”œâ”€â”€ docker-compose.yml
-â”œâ”€â”€ gmr.ps1              â† PowerShell DNS function (the core)
-â”œâ”€â”€ server.js            â† Node/Express web layer
-â”œâ”€â”€ package.json
-â”œâ”€â”€ start.sh
-â””â”€â”€ apache/
-    â””â”€â”€ httpd.conf
+├── Dockerfile
+├── docker-compose.yml
+├── gmr.ps1              ← PowerShell DNS function (the core)
+├── server.js            ← Node/Express web layer
+├── package.json
+├── start.sh
+└── apache/
+    └── httpd.conf
 ```
 
 ## Deploy
@@ -35,7 +35,7 @@ curl http://localhost:7777
 ## Cloudflare Tunnel
 
 In the Cloudflare Zero Trust dashboard:
-- Networks â†’ Tunnels â†’ your tunnel â†’ Edit
+- Networks → Tunnels → your tunnel → Edit
 - Add a Public Hostname:
   - Subdomain: `gmr`
   - Domain: `yourdomain.com`
