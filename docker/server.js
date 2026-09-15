@@ -86,10 +86,13 @@ app.post('/query', (req, res) => {
 
     // Always send results HTML
     // If export requested, embed the download data as well
+    const normalizedExportFmt = String(exportfmt || 'csv').toLowerCase();
+    const safeExportFmt = normalizedExportFmt === 'json' ? 'json' : 'csv';
+    const safeDomainForFilename = String(domain || 'domain').replace(/[^a-zA-Z0-9._-]/g, '_');
     const exportData = doexport === '1' ? {
-      fmt: (exportfmt || 'csv').toLowerCase(),
-      data: (exportfmt || 'csv').toLowerCase() === 'json' ? JSON.stringify(results, null, 2) : toCsv(results),
-      filename: `GMR_${domain}_${timestamp()}.${(exportfmt || 'csv').toLowerCase()}`
+      fmt: safeExportFmt,
+      data: safeExportFmt === 'json' ? JSON.stringify(results, null, 2) : toCsv(results),
+      filename: `GMR_${safeDomainForFilename}_${timestamp()}.${safeExportFmt}`
     } : null;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -459,7 +462,12 @@ function resultsHtml(results, domain, exportData = null) {
 ${exportData ? `
 <script>
 (function() {
-  const d = ${JSON.stringify(exportData)};
+  const d = JSON.parse('${JSON.stringify(exportData)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')}');
   setTimeout(function() {
     const blob = new Blob([d.data], { type: d.fmt === 'json' ? 'application/json' : 'text/csv' });
     const url  = URL.createObjectURL(blob);
