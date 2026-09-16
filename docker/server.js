@@ -1,6 +1,7 @@
 'use strict';
 
 const express  = require('express');
+const rateLimit = require('express-rate-limit');
 const { execFile } = require('child_process');
 const path     = require('path');
 const app      = express();
@@ -9,6 +10,19 @@ const GMR_PATH = path.join(__dirname, 'gmr.ps1');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Limits how often a single client can trigger the /query route, which spawns
+// a pwsh subprocess per request. Protects against abuse/DoS via rapid-fire
+// system-command invocations. Adjust window/max to taste.
+const queryLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,             // 20 requests per IP per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).send(errorHtml('Too many requests. Please slow down and try again shortly.'));
+  }
+});
 
 // ── Favicon ───────────────────────────────────────────────────────────────────
 app.get('/favicon.svg', (req, res) => {
@@ -29,7 +43,7 @@ app.get('/', (req, res) => {
 });
 
 // ── Query endpoint ────────────────────────────────────────────────────────────
-app.post('/query', (req, res) => {
+app.post('/query', queryLimiter, (req, res) => {
   const {
     domain, selector, server, rectype,
     sub, justsub, doexport, exportfmt
